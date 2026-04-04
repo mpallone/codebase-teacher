@@ -1,0 +1,7 @@
+database:
+  host: db.prod.example.com
+  port: 5432
+  name: myapp
+redis:
+  host: redis.prod.example.com
+  port: 6379

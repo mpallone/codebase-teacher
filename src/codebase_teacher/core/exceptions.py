@@ -1,0 +1,33 @@
+"""Custom exception hierarchy for codebase-teacher."""
+
+
+class CodebaseTeacherError(Exception):
+    """Base exception for all codebase-teacher errors."""
+
+
+class ScanError(CodebaseTeacherError):
+    """Error during codebase scanning."""
+
+
+class AnalysisError(CodebaseTeacherError):
+    """Error during code analysis."""
+
+
+class GenerationError(CodebaseTeacherError):
+    """Error during content generation."""
+
+
+class LLMError(CodebaseTeacherError):
+    """Error communicating with LLM provider."""
+
+
+class LLMResponseError(LLMError):
+    """LLM returned an unparseable or invalid response."""
+
+
+class ContextBudgetExceeded(LLMError):
+    """Content exceeds the model's context window."""
+
+
+class StorageError(CodebaseTeacherError):
+    """Error with database or file storage."""
