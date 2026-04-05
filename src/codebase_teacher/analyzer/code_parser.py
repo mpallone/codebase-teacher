@@ -1,6 +1,7 @@
-"""AST-based code parsing for Python files.
+"""AST-based code parsing for Python, Java, and Terraform/HCL files.
 
-Extracts functions, classes, imports, and decorators deterministically (no LLM).
+Extracts functions, classes, imports, decorators, and Terraform resources
+deterministically (no LLM).
 """
 
 from __future__ import annotations
@@ -8,11 +9,14 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from codebase_teacher.analyzer.java_parser import parse_java_file
+from codebase_teacher.analyzer.terraform_parser import parse_terraform_file
 from codebase_teacher.storage.models import (
     ClassInfo,
     CodebaseGraph,
     FunctionInfo,
     ImportInfo,
+    TerraformResource,
 )
 
 
@@ -121,22 +125,33 @@ def _extract_class(node: ast.ClassDef, file_path: str) -> ClassInfo:
 
 
 def parse_codebase(root: Path, source_files: list[str]) -> CodebaseGraph:
-    """Parse all Python source files and merge into a single CodebaseGraph."""
+    """Parse Python, Java, and Terraform/HCL source files into a single CodebaseGraph."""
     all_functions: list[FunctionInfo] = []
     all_classes: list[ClassInfo] = []
     all_imports: list[ImportInfo] = []
+    all_terraform_resources: list[TerraformResource] = []
 
     for rel_path in source_files:
         file_path = root / rel_path
-        if file_path.suffix != ".py":
+        suffix = file_path.suffix.lower()
+
+        if suffix == ".py":
+            graph = parse_python_file(file_path, root)
+        elif suffix == ".java":
+            graph = parse_java_file(file_path, root)
+        elif suffix in (".tf", ".hcl"):
+            graph = parse_terraform_file(file_path, root)
+        else:
             continue
-        graph = parse_python_file(file_path, root)
+
         all_functions.extend(graph.functions)
         all_classes.extend(graph.classes)
         all_imports.extend(graph.imports)
+        all_terraform_resources.extend(graph.terraform_resources)
 
     return CodebaseGraph(
         functions=all_functions,
         classes=all_classes,
         imports=all_imports,
+        terraform_resources=all_terraform_resources,
     )
