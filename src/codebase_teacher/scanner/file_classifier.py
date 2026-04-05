@@ -33,6 +33,8 @@ LANGUAGE_MAP: dict[str, str] = {
     ".sh": "shell",
     ".bash": "shell",
     ".zsh": "shell",
+    ".tf": "terraform",
+    ".hcl": "hcl",
 }
 
 # Config file patterns
@@ -53,7 +55,7 @@ INFRA_PATTERNS = {
     ".github", ".circleci", ".gitlab-ci.yml",
 }
 
-INFRA_EXTENSIONS = {".tf", ".tfvars", ".hcl"}
+INFRA_EXTENSIONS = {".tfvars"}
 
 # Build file patterns
 BUILD_PATTERNS = {

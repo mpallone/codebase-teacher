@@ -77,12 +77,23 @@ class ImportInfo(BaseModel):
     is_relative: bool = False
 
 
+class TerraformResource(BaseModel):
+    """A Terraform resource, data source, module, variable, output, or provider."""
+
+    kind: str = Field(description="resource, data, module, variable, output, provider, terraform, locals")
+    type: str = ""
+    name: str = ""
+    file_path: str = ""
+    line_number: int = 0
+
+
 class CodebaseGraph(BaseModel):
     """Structured representation of a parsed codebase."""
 
     functions: list[FunctionInfo] = Field(default_factory=list)
     classes: list[ClassInfo] = Field(default_factory=list)
     imports: list[ImportInfo] = Field(default_factory=list)
+    terraform_resources: list[TerraformResource] = Field(default_factory=list)
 
 
 class APIEndpoint(BaseModel):
