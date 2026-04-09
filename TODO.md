@@ -21,5 +21,4 @@
   - Ensure this feature is documented.
 - Double-check all languages I need to use this on, and add support for them.
 - Add support for C++ (file classification + tree-sitter AST parsing, matching existing language support).
-- Verify the `missing` list in `print_dependency_report` is always empty (walkthrough says it's reserved for future use but never populated). If confirmed, remove it and any related dead code.
 - Double-check that the larger defaults actually take effect everywhere: audit every `max_tokens` / reserved-budget constant end-to-end so a CLI run on a model with a 1e6 context window is not silently capped by a stale default or hardcoded call-site value.
