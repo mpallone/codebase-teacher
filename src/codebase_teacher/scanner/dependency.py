@@ -1,4 +1,4 @@
-"""Detect project dependencies and check for missing packages."""
+"""Detect project dependencies."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from codebase_teacher.storage.models import DependencyInfo, DependencyReport
 def detect_dependencies(root: Path) -> DependencyReport:
     """Scan for dependency files and extract declared dependencies."""
     dependencies: list[DependencyInfo] = []
-    missing: list[DependencyInfo] = []
     config_files: list[str] = []
     infra_hints: list[str] = []
 
@@ -30,7 +29,6 @@ def detect_dependencies(root: Path) -> DependencyReport:
 
     return DependencyReport(
         dependencies=dependencies,
-        missing=missing,
         config_files=config_files,
         infra_hints=infra_hints,
     )
@@ -193,11 +191,3 @@ def print_dependency_report(report: DependencyReport, console: Console | None = 
         console.print("\n[bold]Infrastructure detected:[/]")
         for hint in report.infra_hints:
             console.print(f"  - {hint}")
-
-    if report.missing:
-        console.print("\n[bold yellow]Missing dependencies:[/]")
-        for dep in report.missing:
-            msg = f"  - {dep.name}"
-            if dep.install_instructions:
-                msg += f" ({dep.install_instructions})"
-            console.print(msg)

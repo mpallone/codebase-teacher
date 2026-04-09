@@ -17,7 +17,6 @@ This document explains every module in the `codebase-teacher` repository. It is 
    - [cli/generate.py](#cligeneratepy--teach-generate)
 6. [Core Utilities](#6-core-utilities)
    - [core/config.py](#coreconfigpy)
-   - [core/context.py](#corecontextpy)
    - [core/exceptions.py](#coreexceptionspy)
 7. [Scanner](#7-scanner)
    - [scanner/discovery.py](#scannerdiscoverypy)
@@ -233,12 +232,6 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 
 **Design note:** Using pydantic-settings means settings can be overridden per-call with environment variables without any explicit `.env` file reading. The `--model` CLI flag flows into `settings.model` via `ctx.obj["model"]` at the CLI layer, not through pydantic.
 
-### [`src/codebase_teacher/core/context.py`](https://github.com/mpallone/codebase-teacher/blob/main/src/codebase_teacher/core/context.py)
-
-**What it does:** Defines `ProjectContext`, a lightweight Pydantic model that bundles `root: Path` and `settings: Settings` together. Exposes `output_path` and `db_path` as properties that delegate to `settings`.
-
-**Current usage:** `ProjectContext` is defined but not actually instantiated in the CLI commands (each command creates `Settings()` directly and calls `settings.db_path(root)` / `settings.output_path(root)` directly). The class exists as a clean abstraction for potential future use — e.g., passing a single context object through a deeper call stack.
-
 ### [`src/codebase_teacher/core/exceptions.py`](https://github.com/mpallone/codebase-teacher/blob/main/src/codebase_teacher/core/exceptions.py)
 
 **What it does:** Defines the exception hierarchy. All exceptions inherit from `CodebaseTeacherError(Exception)`.
@@ -333,7 +326,7 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 - Checks for any `*.tf` file → Terraform hint.
 - Checks for `**/k8s/**` or `**/*.k8s.yaml` → Kubernetes hint.
 
-**`print_dependency_report`:** Formats the report using Rich, showing dependency file names, total package count, infra hints, and any missing packages (the `missing` list is always empty in the current implementation — reserved for future use).
+**`print_dependency_report`:** Formats the report using Rich, showing dependency file names, total package count, and infra hints.
 
 ---
 
@@ -649,8 +642,8 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 |---|---|---|
 | `FolderDecision` | `path`, `status` | status ∈ {relevant, irrelevant, unknown} |
 | `FileInfo` | `path`, `category`, `language?`, `token_estimate` | Returned by `classify_file` |
-| `DependencyInfo` | `name`, `source`, `is_available`, `is_open_source`, `install_instructions?` | One package |
-| `DependencyReport` | `dependencies`, `missing`, `config_files`, `infra_hints` | Full scan result |
+| `DependencyInfo` | `name`, `source` | One package |
+| `DependencyReport` | `dependencies`, `config_files`, `infra_hints` | Full scan result |
 
 **Analyzer models:**
 

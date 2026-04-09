@@ -13,7 +13,4 @@
   - Because it requires LLM usage, this might be something that only gets manually kicked off, but runs beginning-to-end without user input.
   - Ensure this feature is documented.
 - Double-check all languages I need to use this on, and add support for them.
-- Add support for C (file classification + tree-sitter AST parsing, matching existing language support).
 - Add support for C++ (file classification + tree-sitter AST parsing, matching existing language support).
-- Verify the `missing` list in `print_dependency_report` is always empty (walkthrough says it's reserved for future use but never populated). If confirmed, remove it and any related dead code.
-- Verify `ProjectContext` is actually unused (walkthrough claims it's defined but never instantiated — CLI commands use `Settings()` directly). If confirmed, delete the class and any related dead code.

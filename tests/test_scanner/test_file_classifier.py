@@ -38,3 +38,13 @@ def test_classify_with_relevant_folders(tmp_project):
     paths = [f.path for f in files]
     # Should only have files from src/
     assert all("src" in p for p in paths)
+
+
+def test_classify_scala_source(tmp_project):
+    """Test that .scala files are classified as source with scala language."""
+    scala_file = tmp_project / "src" / "Main.scala"
+    scala_file.parent.mkdir(exist_ok=True, parents=True)
+    scala_file.write_text("object Main")
+    result = classify_file(scala_file, tmp_project)
+    assert result.category == "source"
+    assert result.language == "scala"

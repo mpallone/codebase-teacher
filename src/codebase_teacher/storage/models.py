@@ -29,16 +29,12 @@ class DependencyInfo(BaseModel):
 
     name: str
     source: str = Field(description="File where this dependency was found")
-    is_available: bool = True
-    is_open_source: bool = True
-    install_instructions: str | None = None
 
 
 class DependencyReport(BaseModel):
     """Full dependency analysis report."""
 
     dependencies: list[DependencyInfo] = Field(default_factory=list)
-    missing: list[DependencyInfo] = Field(default_factory=list)
     config_files: list[str] = Field(default_factory=list)
     infra_hints: list[str] = Field(default_factory=list)
 
