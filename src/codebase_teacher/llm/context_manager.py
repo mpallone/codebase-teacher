@@ -53,19 +53,32 @@ class ContextManager:
         self,
         provider: LLMProvider,
         max_concurrent: int = 5,
+        reserved_system: int = 4000,
+        reserved_response: int = 16384,
     ):
         self.provider = provider
         self.max_concurrent = max_concurrent
+        self._reserved_system = reserved_system
+        self._reserved_response = reserved_response
         self._file_summaries: dict[str, FileSummary] = {}
         self._module_summaries: dict[str, ModuleSummary] = {}
         self._project_summary: ProjectSummary | None = None
 
     @property
     def available_tokens(self) -> int:
-        """Tokens available for content (after reserving for system prompt + response)."""
-        reserved_system = 2000
-        reserved_response = 4000
-        return self.provider.context_window - reserved_system - reserved_response
+        """Tokens available for content (after reserving for system prompt + response).
+
+        ``reserved_response`` should match the ``max_tokens`` the provider is
+        configured to request, so the input budget never crowds out the output
+        the model is allowed to produce. Defaults are sized for modern large
+        context windows (e.g. 200k–1M tokens) — pass smaller values explicitly
+        when targeting tiny models.
+        """
+        return (
+            self.provider.context_window
+            - self._reserved_system
+            - self._reserved_response
+        )
 
     def fits_in_context(self, content: str) -> bool:
         return estimate_tokens(content) <= self.available_tokens

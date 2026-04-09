@@ -41,7 +41,7 @@ async def trace_data_flows(
         Message(role="user", content=prompt.format_user(summaries=summaries)),
     ]
 
-    response = await provider.complete(messages, max_tokens=8192)
+    response = await provider.complete(messages)
     try:
         return parse_model_list(response.content, DataFlow)
     except Exception:

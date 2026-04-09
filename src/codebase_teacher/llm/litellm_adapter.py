@@ -20,7 +20,7 @@ litellm.suppress_debug_info = True
 class LiteLLMProvider:
     """LLM provider backed by litellm."""
 
-    def __init__(self, model: str, max_tokens: int = 4096):
+    def __init__(self, model: str, max_tokens: int = 16384):
         self._model = model
         self._max_tokens = max_tokens
         self._context_window: int | None = None

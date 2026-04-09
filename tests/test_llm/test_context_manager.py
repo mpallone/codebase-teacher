@@ -23,8 +23,18 @@ def test_context_manager_available_tokens(mock_provider):
     """Test token budget calculation."""
     cm = ContextManager(mock_provider)
     available = cm.available_tokens
-    # Should be context_window - reserved
-    assert available == 100_000 - 2000 - 4000
+    # Should be context_window - reserved (system + response)
+    assert available == 100_000 - 4000 - 16384
+
+
+def test_context_manager_available_tokens_custom_reservations(mock_provider):
+    """Reserved budgets are configurable for non-default models."""
+    cm = ContextManager(
+        mock_provider,
+        reserved_system=1000,
+        reserved_response=2000,
+    )
+    assert cm.available_tokens == 100_000 - 1000 - 2000
 
 
 def test_fits_in_context(mock_provider):

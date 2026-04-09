@@ -73,7 +73,11 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
 
     # Initialize LLM
     provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
-    ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
+    ctx_manager = ContextManager(
+        provider,
+        max_concurrent=settings.max_concurrent_llm_calls,
+        reserved_response=settings.max_tokens,
+    )
 
     result = AnalysisResult()
 
