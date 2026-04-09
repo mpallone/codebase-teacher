@@ -49,7 +49,7 @@ async def generate_architecture_doc(
         ),
     ]
 
-    response = await provider.complete(messages, max_tokens=8192)
+    response = await provider.complete(messages)
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
@@ -89,7 +89,7 @@ async def generate_api_doc(
         ),
     ]
 
-    response = await provider.complete(messages, max_tokens=8192)
+    response = await provider.complete(messages)
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
@@ -127,7 +127,7 @@ async def generate_infra_doc(
         ),
     ]
 
-    response = await provider.complete(messages, max_tokens=8192)
+    response = await provider.complete(messages)
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")

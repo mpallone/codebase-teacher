@@ -187,7 +187,7 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 8. **Step 5 — Project summary (LLM).** Calls `ctx_manager.summarize_project(module_summaries)`, which concatenates module summaries and asks for a project-level overview. One LLM call.
 9. **Step 6 — LLM-based API detection.** Calls `detect_apis(provider, file_contents)`, which sends all source code to the LLM and asks for all API endpoints. Merges results with AST-detected endpoints, deduplicating by handler name.
 10. **Step 7 — Infrastructure detection (LLM).** Reads config and infra files from the DB, adds the first 20 source files, adds `dep_report.infra_hints` as extra context, and calls `detect_infrastructure(provider, infra_files, hints)`.
-11. **Step 8 — Data flow tracing (LLM).** Calls `trace_data_flows(provider, project_summary, module_summaries, api_endpoints, infrastructure)`. This is the most expensive call; it uses `max_tokens=8192`.
+11. **Step 8 — Data flow tracing (LLM).** Calls `trace_data_flows(provider, project_summary, module_summaries, api_endpoints, infrastructure)`. This is the most expensive call. It inherits the provider's configured `max_tokens` (Settings-driven) — no hardcoded override.
 
 **Caching:** After all steps, assembles an `AnalysisResult` pydantic model and calls `db.cache_analysis(project_id, "full_analysis", content_hash, result.model_dump())`. The content hash is SHA-256 of all source file bytes (truncated to 16 hex chars). The `generate` command reads this cache.
 
@@ -223,7 +223,7 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 |---|---|---|
 | `model` | `"anthropic/claude-sonnet-4-20250514"` | litellm model string |
 | `temperature` | `0.3` | LLM temperature for most calls |
-| `max_tokens` | `4096` | Max tokens per LLM response |
+| `max_tokens` | `16384` | Max output tokens per LLM call. Single source of truth — all call sites inherit this via `LiteLLMProvider`. |
 | `output_dir` | `".teacher-output"` | Relative to target project root |
 | `db_dir` | `".teacher"` | Relative to target project root |
 | `verbose` | `False` | Not yet wired to logging |
@@ -498,7 +498,7 @@ This runs once at import time. If `tree-sitter-java` is not installed, `_JAVA_AV
 **`trace_data_flows(provider, project_summary, module_summaries, api_endpoints, infrastructure)`:**
 - Builds a context document with `_build_summaries_text`: project overview, module summaries section, API endpoints section, infrastructure section.
 - Uses the `"trace_data_flow"` prompt.
-- Passes `max_tokens=8192` (overriding the default) because data flow descriptions with embedded Mermaid diagrams are longer than typical responses.
+- Passes no `max_tokens` override; inherits the provider's configured cap (`Settings.max_tokens`, default 16384).
 - Parses as `list[DataFlow]` via `parse_model_list`.
 
 **`DataFlow` fields:** `name` (descriptive name), `entry_points` (list of entry point strings), `steps` (ordered list of processing steps), `outputs` (list of output destinations), `mermaid_diagram` (a Mermaid sequence or flowchart diagram as a string).
@@ -544,7 +544,9 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 
 **`context_window` property:**
 - On first access, calls `litellm.get_max_tokens(self._model)`, which looks up known context windows.
-- Falls back to `100_000` if the model isn't in litellm's registry.
+- Falls back to `200_000` (and emits a warning log) if the model isn't in litellm's registry. The warning is what makes this not a silent cap — users see they're in fallback-land and should upgrade litellm if their model has a larger window.
+
+**`max_tokens` property:** Exposes the configured output cap (`_max_tokens`) as a read-only property. `ContextManager.available_tokens` reads this to reserve response headroom dynamically.
 
 **`litellm.suppress_debug_info = True`:** Module-level line that disables litellm's verbose startup logging, which would otherwise clutter the CLI output.
 
@@ -580,7 +582,7 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 - Stores `provider` and `max_concurrent`.
 - Internal caches: `_file_summaries: dict[str, FileSummary]`, `_module_summaries: dict[str, ModuleSummary]`, `_project_summary: ProjectSummary | None`.
 
-**`available_tokens`:** `provider.context_window - 2000 - 4000`. Reserves 2000 tokens for system prompts and 4000 for the response. What's left is the budget for input content.
+**`available_tokens`:** `provider.context_window - 4000 - provider.max_tokens`. Reserves 4000 tokens for system prompts and reserves the provider's actual configured output cap for the response. Reading `provider.max_tokens` dynamically means raising `Settings.max_tokens` automatically shrinks the input budget to match — no silent over-allocation.
 
 **`summarize_file(file_path, code)`:**
 - Checks the `_file_summaries` cache first.
@@ -726,7 +728,7 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
    - `data_flows`: formatted as bullet lists (name, entry, steps, output).
    - `infrastructure`: formatted as bold technology name + bullet points.
    - `apis`: formatted as `"- METHOD /path -> handler (file): description"` lines.
-2. Calls `provider.complete(messages, max_tokens=8192)`.
+2. Calls `provider.complete(messages)` — inherits the provider's configured output cap.
 3. Renders `doc_page.md.j2` with `title="Architecture Overview"` and `body=response.content`.
 4. Writes to `docs/architecture.md` via `store.write`.
 
@@ -779,7 +781,7 @@ Every generated documentation page uses this wrapper. It adds the title as an H1
 
 **What it does:** Defines shared fixtures available to all test modules via pytest's fixture discovery.
 
-**`MockLLMProvider`:** Satisfies the `LLMProvider` protocol without inheriting from it. Constructor takes an optional `responses: dict[str, str]` mapping keyword → response string. In `complete()`, it checks if any keyword appears (case-insensitive) in the last message's content and returns the corresponding canned response. Otherwise returns a default string. `_calls` accumulates all message lists — tests can inspect this to verify the LLM was called correctly. `context_window` returns `100_000`.
+**`MockLLMProvider`:** Satisfies the `LLMProvider` protocol without inheriting from it. Constructor takes an optional `responses: dict[str, str]` mapping keyword → response string. In `complete()`, it checks if any keyword appears (case-insensitive) in the last message's content and returns the corresponding canned response. Otherwise returns a default string. `_calls` accumulates all message lists — tests can inspect this to verify the LLM was called correctly. `context_window` returns `100_000`; `max_tokens` returns `16384` (matching the Settings default).
 
 **Fixtures:**
 
@@ -865,7 +867,8 @@ Tests cover: resources, data sources, variables, outputs, modules, providers, mi
 
 **`test_context_manager.py`:**
 - `test_estimate_tokens`: Empty → 0, 400 `"a"`s → 100.
-- `test_context_manager_available_tokens`: `100_000 - 2000 - 4000 = 94_000`.
+- `test_context_manager_available_tokens`: `100_000 - 4000 - 16384 = 79_616`.
+- `test_available_tokens_tracks_provider_max_tokens`: regression test pinning the contract that `reserved_response == provider.max_tokens`, so raising the output cap shrinks the input budget automatically.
 - `test_fits_in_context`: Short text fits, 1M chars doesn't.
 - `test_summarize_file` and `test_summarize_file_caching`: Async tests verifying file summary is returned and cached (same object on second call).
 - `test_summarize_files_concurrent`: 3 files, `max_concurrent=2`, all 3 summaries returned.
@@ -921,7 +924,7 @@ Here is what happens mechanically when a user runs all three commands on a Pytho
 
 1. Opens the same DB. Gets `project_id = 1`. Loads `relevant_folders = ["src", "tests"]`.
 2. Loads `source_files` from `file_classifications` where `category = "source"`.
-3. Creates `LiteLLMProvider("anthropic/claude-sonnet-4-20250514", max_tokens=4096)` and `ContextManager(provider, max_concurrent=5)`.
+3. Creates `LiteLLMProvider("anthropic/claude-sonnet-4-20250514", max_tokens=16384)` and `ContextManager(provider, max_concurrent=5)`.
 4. `parse_codebase(root, source_files)`:
    - For each `.py` file: `ast.parse` → extract functions, classes, imports.
    - Returns one `CodebaseGraph` with everything merged.
@@ -942,7 +945,7 @@ Here is what happens mechanically when a user runs all three commands on a Pytho
     - Parses JSON array into `list[APIEndpoint]`.
     - Merged with AST endpoints (dedup by handler name).
 12. Reads config and infra files from DB; calls `detect_infrastructure(provider, infra_files, hints)` → one LLM call.
-13. `trace_data_flows(provider, ...)` → one LLM call with `max_tokens=8192`.
+13. `trace_data_flows(provider, ...)` → one LLM call. Inherits the provider's configured `max_tokens`.
 14. Assembles `AnalysisResult`. Computes SHA-256 hash of source files.
 15. `db.cache_analysis(1, "full_analysis", hash, result.model_dump())` → stores `result_json` TEXT in `analysis_cache`.
 
@@ -952,7 +955,7 @@ Here is what happens mechanically when a user runs all three commands on a Pytho
 2. Queries `analysis_cache` for most recent `full_analysis` row. Deserializes via `AnalysisResult.model_validate(data)`.
 3. Creates `LiteLLMProvider` and `ArtifactStore(output_dir=<project>/.teacher-output, db, project_id=1)`.
 4. `generate_all_docs(provider, analysis, store)`:
-   - `generate_architecture_doc`: formats prompt with project/module/flow/infra/api data. One LLM call (max_tokens=8192). Renders `doc_page.md.j2`. Writes to `.teacher-output/docs/architecture.md`.
+   - `generate_architecture_doc`: formats prompt with project/module/flow/infra/api data. One LLM call. Renders `doc_page.md.j2`. Writes to `.teacher-output/docs/architecture.md`.
    - `generate_api_doc`: same pattern. Writes to `.teacher-output/docs/api-reference.md`.
    - `generate_infra_doc`: same pattern. Writes to `.teacher-output/docs/infrastructure.md`.
 5. `generate_all_diagrams(provider, analysis, store)`:

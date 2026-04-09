@@ -62,9 +62,13 @@ class ContextManager:
 
     @property
     def available_tokens(self) -> int:
-        """Tokens available for content (after reserving for system prompt + response)."""
-        reserved_system = 2000
-        reserved_response = 4000
+        """Tokens available for content (after reserving for system prompt + response).
+
+        reserved_response tracks the provider's actual configured output cap so a larger
+        Settings.max_tokens cannot overflow the input budget.
+        """
+        reserved_system = 4000  # headroom for our longest system prompts (trace_data_flow, generate_architecture_doc)
+        reserved_response = self.provider.max_tokens
         return self.provider.context_window - reserved_system - reserved_response
 
     def fits_in_context(self, content: str) -> bool:
