@@ -1,12 +1,5 @@
 # TODO
 
-- Raise token limit defaults — routinely operating on ~1e6-token codebases, and current defaults are tuned for small windows.
-  - `src/codebase_teacher/core/config.py:19` — `Settings.max_tokens` defaults to `4096`.
-  - `src/codebase_teacher/llm/litellm_adapter.py:23` — `LiteLLMProvider.__init__` defaults `max_tokens=4096`.
-  - `src/codebase_teacher/analyzer/flow_tracer.py:44` — hardcoded `max_tokens=8192`.
-  - `src/codebase_teacher/generator/docs.py:52, 92, 130` — three hardcoded `max_tokens=8192` call sites.
-  - `src/codebase_teacher/llm/context_manager.py:66-68` — `reserved_system=2000`, `reserved_response=4000` assume tiny context windows.
-- Update `available_tokens` reservations in `src/codebase_teacher/llm/context_manager.py:66-68` (`provider.context_window - 2000 - 4000`) for 1M-token context windows — the 2000/4000 reservations for system prompt and response are sized for tiny windows and leave too little headroom for output on large models.
 - README documentation describing how to use the tool.
 - README documentation describing how to set up the tool for the first time.
 - Automated end-to-end LLM-judged test harness:
@@ -21,4 +14,3 @@
   - Ensure this feature is documented.
 - Double-check all languages I need to use this on, and add support for them.
 - Add support for C++ (file classification + tree-sitter AST parsing, matching existing language support).
-- Double-check that the larger defaults actually take effect everywhere: audit every `max_tokens` / reserved-budget constant end-to-end so a CLI run on a model with a 1e6 context window is not silently capped by a stale default or hardcoded call-site value.

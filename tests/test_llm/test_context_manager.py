@@ -23,8 +23,18 @@ def test_context_manager_available_tokens(mock_provider):
     """Test token budget calculation."""
     cm = ContextManager(mock_provider)
     available = cm.available_tokens
-    # Should be context_window - reserved
-    assert available == 100_000 - 2000 - 4000
+    # Should be context_window - reserved_system - provider.max_tokens
+    assert available == 100_000 - 4000 - 16384
+
+
+def test_available_tokens_tracks_provider_max_tokens(mock_provider):
+    """reserved_response must equal provider.max_tokens so raising the output
+    cap automatically shrinks the input budget. Regression test for the
+    silent over-allocation bug where reserved_response was hardcoded to 4000
+    while the output cap could be set much higher."""
+    cm = ContextManager(mock_provider)
+    expected = mock_provider.context_window - 4000 - mock_provider.max_tokens
+    assert cm.available_tokens == expected
 
 
 def test_fits_in_context(mock_provider):

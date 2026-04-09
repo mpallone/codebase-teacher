@@ -61,6 +61,10 @@ class MockLLMProvider:
         return 100_000
 
     @property
+    def max_tokens(self) -> int:
+        return 16384
+
+    @property
     def model_name(self) -> str:
         return "mock-model"
 

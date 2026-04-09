@@ -64,6 +64,11 @@ class LLMProvider(Protocol):
         ...
 
     @property
+    def max_tokens(self) -> int:
+        """Configured maximum output tokens per completion."""
+        ...
+
+    @property
     def model_name(self) -> str:
         """Human-readable model identifier."""
         ...

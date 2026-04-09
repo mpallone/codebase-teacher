@@ -20,7 +20,7 @@ litellm.suppress_debug_info = True
 class LiteLLMProvider:
     """LLM provider backed by litellm."""
 
-    def __init__(self, model: str, max_tokens: int = 4096):
+    def __init__(self, model: str, max_tokens: int = 16384):
         self._model = model
         self._max_tokens = max_tokens
         self._context_window: int | None = None
@@ -83,8 +83,18 @@ class LiteLLMProvider:
             try:
                 self._context_window = litellm.get_max_tokens(self._model)
             except Exception:
-                self._context_window = 100_000  # safe default
+                import logging
+                logging.getLogger(__name__).warning(
+                    "litellm does not recognize model %r; using fallback context_window=200_000. "
+                    "If this model has a larger window, upgrade litellm.",
+                    self._model,
+                )
+                self._context_window = 200_000
         return self._context_window
+
+    @property
+    def max_tokens(self) -> int:
+        return self._max_tokens
 
     @property
     def model_name(self) -> str:

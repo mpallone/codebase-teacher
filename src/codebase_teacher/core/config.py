@@ -16,7 +16,11 @@ class Settings(BaseSettings):
         description="LLM model in litellm format (provider/model)",
     )
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=4096, gt=0)
+    max_tokens: int = Field(
+        default=16384,
+        gt=0,
+        description="Max output tokens per LLM call. Single source of truth — all call sites inherit this via LiteLLMProvider.",
+    )
     output_dir: str = Field(
         default=".teacher-output",
         description="Directory for generated artifacts (relative to target project)",
