@@ -1,4 +1,4 @@
-"""AST-based code parsing for Python, Java, Scala, and Terraform/HCL files.
+"""AST-based code parsing for Python, Java, C, Scala, and Terraform/HCL files.
 
 Extracts functions, classes, imports, decorators, and Terraform resources
 deterministically (no LLM).
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from rich.console import Console
 
+from codebase_teacher.analyzer.c_parser import parse_c_file
 from codebase_teacher.analyzer.java_parser import parse_java_file
 from codebase_teacher.analyzer.scala_parser import parse_scala_file
 from codebase_teacher.analyzer.terraform_parser import parse_terraform_file
@@ -134,7 +135,7 @@ def parse_codebase(
     source_files: list[str],
     console: Console | None = None,
 ) -> CodebaseGraph:
-    """Parse Python, Java, Scala, and Terraform/HCL source files into a single CodebaseGraph.
+    """Parse Python, Java, C, Scala, and Terraform/HCL source files into a single CodebaseGraph.
 
     Source files whose extension is recognized as a language (present in
     ``LANGUAGE_MAP``) but which have no AST parser wired up are skipped.
@@ -157,6 +158,8 @@ def parse_codebase(
             graph = parse_python_file(file_path, root)
         elif suffix == ".java":
             graph = parse_java_file(file_path, root)
+        elif suffix in (".c", ".h"):
+            graph = parse_c_file(file_path, root)
         elif suffix == ".scala":
             graph = parse_scala_file(file_path, root)
         elif suffix in (".tf", ".hcl"):
