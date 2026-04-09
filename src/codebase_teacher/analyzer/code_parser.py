@@ -1,4 +1,4 @@
-"""AST-based code parsing for Python, Java, and Terraform/HCL files.
+"""AST-based code parsing for Python, Java, Scala, and Terraform/HCL files.
 
 Extracts functions, classes, imports, decorators, and Terraform resources
 deterministically (no LLM).
@@ -7,10 +7,15 @@ deterministically (no LLM).
 from __future__ import annotations
 
 import ast
+from collections import Counter
 from pathlib import Path
 
+from rich.console import Console
+
 from codebase_teacher.analyzer.java_parser import parse_java_file
+from codebase_teacher.analyzer.scala_parser import parse_scala_file
 from codebase_teacher.analyzer.terraform_parser import parse_terraform_file
+from codebase_teacher.scanner.file_classifier import LANGUAGE_MAP
 from codebase_teacher.storage.models import (
     ClassInfo,
     CodebaseGraph,
@@ -124,12 +129,25 @@ def _extract_class(node: ast.ClassDef, file_path: str) -> ClassInfo:
     )
 
 
-def parse_codebase(root: Path, source_files: list[str]) -> CodebaseGraph:
-    """Parse Python, Java, and Terraform/HCL source files into a single CodebaseGraph."""
+def parse_codebase(
+    root: Path,
+    source_files: list[str],
+    console: Console | None = None,
+) -> CodebaseGraph:
+    """Parse Python, Java, Scala, and Terraform/HCL source files into a single CodebaseGraph.
+
+    Source files whose extension is recognized as a language (present in
+    ``LANGUAGE_MAP``) but which have no AST parser wired up are skipped.
+    A yellow warning is emitted via ``console`` (or a default stderr
+    ``Console`` if none is provided), aggregated per unique extension so
+    the user sees one line per unsupported language rather than one line
+    per file.
+    """
     all_functions: list[FunctionInfo] = []
     all_classes: list[ClassInfo] = []
     all_imports: list[ImportInfo] = []
     all_terraform_resources: list[TerraformResource] = []
+    skipped: Counter[str] = Counter()
 
     for rel_path in source_files:
         file_path = root / rel_path
@@ -139,15 +157,28 @@ def parse_codebase(root: Path, source_files: list[str]) -> CodebaseGraph:
             graph = parse_python_file(file_path, root)
         elif suffix == ".java":
             graph = parse_java_file(file_path, root)
+        elif suffix == ".scala":
+            graph = parse_scala_file(file_path, root)
         elif suffix in (".tf", ".hcl"):
             graph = parse_terraform_file(file_path, root)
         else:
+            skipped[suffix] += 1
             continue
 
         all_functions.extend(graph.functions)
         all_classes.extend(graph.classes)
         all_imports.extend(graph.imports)
         all_terraform_resources.extend(graph.terraform_resources)
+
+    if skipped:
+        warn_console = console or Console(stderr=True)
+        for suffix, count in sorted(skipped.items()):
+            language = LANGUAGE_MAP.get(suffix, "unknown")
+            warn_console.print(
+                f"[yellow]Warning:[/] skipped {count} source file(s) "
+                f"with extension '{suffix}' (language '{language}') "
+                f"— no AST parser configured."
+            )
 
     return CodebaseGraph(
         functions=all_functions,
