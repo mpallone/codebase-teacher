@@ -333,7 +333,7 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 - Checks for any `*.tf` file → Terraform hint.
 - Checks for `**/k8s/**` or `**/*.k8s.yaml` → Kubernetes hint.
 
-**`print_dependency_report`:** Formats the report using Rich, showing dependency file names, total package count, infra hints, and any missing packages (the `missing` list is always empty in the current implementation — reserved for future use).
+**`print_dependency_report`:** Formats the report using Rich, showing dependency file names, total package count, and infra hints.
 
 ---
 
@@ -647,8 +647,8 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 |---|---|---|
 | `FolderDecision` | `path`, `status` | status ∈ {relevant, irrelevant, unknown} |
 | `FileInfo` | `path`, `category`, `language?`, `token_estimate` | Returned by `classify_file` |
-| `DependencyInfo` | `name`, `source`, `is_available`, `is_open_source`, `install_instructions?` | One package |
-| `DependencyReport` | `dependencies`, `missing`, `config_files`, `infra_hints` | Full scan result |
+| `DependencyInfo` | `name`, `source` | One package |
+| `DependencyReport` | `dependencies`, `config_files`, `infra_hints` | Full scan result |
 
 **Analyzer models:**
 
