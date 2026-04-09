@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from rich.console import Console
+
 from codebase_teacher.analyzer.code_parser import parse_python_file, parse_codebase
 
 
@@ -75,3 +77,47 @@ def test_parse_invalid_python(tmp_path):
     # Should return empty graph, not raise
     assert graph.functions == []
     assert graph.classes == []
+
+
+def test_parse_codebase_warns_on_unsupported_language(tmp_path, capsys):
+    """Unsupported source languages should surface an aggregated warning."""
+    (tmp_path / "a.rb").write_text("class Foo; end")
+    (tmp_path / "b.rb").write_text("class Bar; end")
+    (tmp_path / "c.kt").write_text("fun main() {}")
+
+    console = Console(force_terminal=False, width=200)
+    graph = parse_codebase(
+        tmp_path, ["a.rb", "b.rb", "c.kt"], console=console
+    )
+
+    captured = capsys.readouterr()
+    # One aggregated warning per unique extension (not one per file).
+    assert "skipped 2 source file(s) with extension '.rb'" in captured.out
+    assert "skipped 1 source file(s) with extension '.kt'" in captured.out
+    assert "language 'ruby'" in captured.out
+    assert "language 'kotlin'" in captured.out
+    assert graph.classes == []
+
+
+def test_parse_codebase_no_warning_when_all_supported(tmp_path, capsys):
+    """Pure-supported codebases must not emit a skip warning."""
+    (tmp_path / "a.py").write_text("def foo(): pass\n")
+
+    console = Console(force_terminal=False, width=200)
+    parse_codebase(tmp_path, ["a.py"], console=console)
+
+    captured = capsys.readouterr()
+    assert "skipped" not in captured.out
+    assert "Warning" not in captured.out
+
+
+def test_parse_codebase_skip_warning_without_console(tmp_path, capsys):
+    """When no console is passed, warnings still appear on stderr."""
+    (tmp_path / "a.go").write_text("package main")
+
+    parse_codebase(tmp_path, ["a.go"])
+
+    captured = capsys.readouterr()
+    # Default console uses stderr=True
+    assert "skipped 1 source file(s) with extension '.go'" in captured.err
+    assert "language 'go'" in captured.err
