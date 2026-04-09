@@ -84,7 +84,7 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
     ) as progress:
         # Step 1: AST parsing (deterministic, no LLM)
         task = progress.add_task("Parsing code (AST)...", total=None)
-        result.codebase_graph = parse_codebase(root, source_files)
+        result.codebase_graph = parse_codebase(root, source_files, console=console)
         progress.update(task, completed=True, description="[green]AST parsing complete")
 
         console.print(
