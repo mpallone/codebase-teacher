@@ -16,4 +16,3 @@
 - Add support for C (file classification + tree-sitter AST parsing, matching existing language support).
 - Add support for C++ (file classification + tree-sitter AST parsing, matching existing language support).
 - Verify the `missing` list in `print_dependency_report` is always empty (walkthrough says it's reserved for future use but never populated). If confirmed, remove it and any related dead code.
-- Verify `ProjectContext` is actually unused (walkthrough claims it's defined but never instantiated — CLI commands use `Settings()` directly). If confirmed, delete the class and any related dead code.

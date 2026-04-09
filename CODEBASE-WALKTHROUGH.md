@@ -17,7 +17,6 @@ This document explains every module in the `codebase-teacher` repository. It is 
    - [cli/generate.py](#cligeneratepy--teach-generate)
 6. [Core Utilities](#6-core-utilities)
    - [core/config.py](#coreconfigpy)
-   - [core/context.py](#corecontextpy)
    - [core/exceptions.py](#coreexceptionspy)
 7. [Scanner](#7-scanner)
    - [scanner/discovery.py](#scannerdiscoverypy)
@@ -232,12 +231,6 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 `output_path(project_root)` and `db_path(project_root)` are helper methods that resolve the relative dirs against the project root and create the db directory if absent.
 
 **Design note:** Using pydantic-settings means settings can be overridden per-call with environment variables without any explicit `.env` file reading. The `--model` CLI flag flows into `settings.model` via `ctx.obj["model"]` at the CLI layer, not through pydantic.
-
-### [`src/codebase_teacher/core/context.py`](https://github.com/mpallone/codebase-teacher/blob/main/src/codebase_teacher/core/context.py)
-
-**What it does:** Defines `ProjectContext`, a lightweight Pydantic model that bundles `root: Path` and `settings: Settings` together. Exposes `output_path` and `db_path` as properties that delegate to `settings`.
-
-**Current usage:** `ProjectContext` is defined but not actually instantiated in the CLI commands (each command creates `Settings()` directly and calls `settings.db_path(root)` / `settings.output_path(root)` directly). The class exists as a clean abstraction for potential future use — e.g., passing a single context object through a deeper call stack.
 
 ### [`src/codebase_teacher/core/exceptions.py`](https://github.com/mpallone/codebase-teacher/blob/main/src/codebase_teacher/core/exceptions.py)
 
