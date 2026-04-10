@@ -12,12 +12,14 @@ console = Console()
 
 @click.group()
 @click.version_option(version=__version__)
-@click.option("--model", envvar="CODEBASE_TEACHER_MODEL", default=None, help="LLM model (litellm format)")
+@click.option("--provider", envvar="CODEBASE_TEACHER_PROVIDER", default=None, help="LLM provider (claude-code or litellm)")
+@click.option("--model", envvar="CODEBASE_TEACHER_MODEL", default=None, help="LLM model (litellm format, only used with litellm provider)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.pass_context
-def cli(ctx: click.Context, model: str | None, verbose: bool) -> None:
+def cli(ctx: click.Context, provider: str | None, model: str | None, verbose: bool) -> None:
     """Codebase Teacher — AI-powered codebase learning tool."""
     ctx.ensure_object(dict)
+    ctx.obj["provider"] = provider
     ctx.obj["model"] = model
     ctx.obj["verbose"] = verbose
 

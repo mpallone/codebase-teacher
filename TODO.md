@@ -1,7 +1,17 @@
 # TODO
 
-- README documentation describing how to use the tool.
-- README documentation describing how to set up the tool for the first time.
+## Future CLI Providers
+
+- [ ] Add Codex CLI provider (`codex`)
+- [ ] Add Windsurf CLI provider
+- [ ] Add Gemini CLI provider
+
+## Claude Code Integration
+
+- [ ] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+
+## Existing
+
 - Automated end-to-end LLM-judged test harness:
   - Need to test this stuff against a codebase.
   - Have a mock codebase as a test artifact. Mock codebase should be complex enough to exercise all features of codebase-teacher.

@@ -29,5 +29,9 @@ class ContextBudgetExceeded(LLMError):
     """Content exceeds the model's context window."""
 
 
+class CLIProviderError(LLMError):
+    """Error running a CLI-based LLM provider (tool not found, timeout, etc.)."""
+
+
 class StorageError(CodebaseTeacherError):
     """Error with database or file storage."""

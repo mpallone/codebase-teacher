@@ -17,7 +17,7 @@ from codebase_teacher.analyzer.flow_tracer import trace_data_flows
 from codebase_teacher.analyzer.infra_detector import detect_infrastructure
 from codebase_teacher.core.config import Settings
 from codebase_teacher.llm.context_manager import ContextManager
-from codebase_teacher.llm.litellm_adapter import LiteLLMProvider
+from codebase_teacher.llm.factory import create_provider
 from codebase_teacher.scanner.dependency import detect_dependencies
 from codebase_teacher.storage.database import Database
 from codebase_teacher.storage.models import AnalysisResult
@@ -32,11 +32,13 @@ def analyze(ctx: click.Context, path: str) -> None:
     """Analyze a codebase using LLM-assisted code understanding."""
     root = Path(path)
     settings = Settings()
+    if ctx.obj.get("provider"):
+        settings.provider = ctx.obj["provider"]
     if ctx.obj.get("model"):
         settings.model = ctx.obj["model"]
 
     console.print(f"\n[bold]Analyzing codebase:[/] {root}")
-    console.print(f"[dim]Model: {settings.model}[/]")
+    console.print(f"[dim]Provider: {settings.provider}[/]")
 
     asyncio.run(_analyze_async(root, settings))
 
@@ -80,7 +82,7 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
         return
 
     # Initialize LLM
-    provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
+    provider = create_provider(settings)
     ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
 
     result = AnalysisResult()

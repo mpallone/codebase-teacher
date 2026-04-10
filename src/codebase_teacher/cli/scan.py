@@ -9,7 +9,7 @@ from rich.console import Console
 
 from codebase_teacher.core.config import Settings
 from codebase_teacher.scanner.dependency import detect_dependencies, print_dependency_report
-from codebase_teacher.scanner.discovery import interactive_folder_selection
+from codebase_teacher.scanner.discovery import auto_select_all, interactive_folder_selection
 from codebase_teacher.scanner.file_classifier import classify_directory
 from codebase_teacher.storage.database import Database
 
@@ -18,8 +18,9 @@ console = Console()
 
 @click.command()
 @click.argument("path", type=click.Path(exists=True, file_okay=False, resolve_path=True))
+@click.option("--auto", is_flag=True, help="Auto-select all folders (non-interactive, for headless/mobile use)")
 @click.pass_context
-def scan(ctx: click.Context, path: str) -> None:
+def scan(ctx: click.Context, path: str, auto: bool) -> None:
     """Scan a codebase — discover folders and classify files."""
     root = Path(path)
     settings = Settings()
@@ -32,9 +33,12 @@ def scan(ctx: click.Context, path: str) -> None:
     db = Database(settings.db_path(root))
     project_id = db.get_or_create_project(str(root), root.name)
 
-    # Step 1: Interactive folder discovery
+    # Step 1: Folder discovery
     console.print("\n[bold cyan]Step 1: Folder Discovery[/]")
-    relevant_folders = interactive_folder_selection(root, db, project_id, console)
+    if auto:
+        relevant_folders = auto_select_all(root, db, project_id, console)
+    else:
+        relevant_folders = interactive_folder_selection(root, db, project_id, console)
 
     # Step 2: Classify files
     console.print("\n[bold cyan]Step 2: Classifying files...[/]")
