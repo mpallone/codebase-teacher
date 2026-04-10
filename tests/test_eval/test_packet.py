@@ -10,11 +10,11 @@ from pathlib import Path
 import pytest
 
 from eval.packet import (
+    _all_source_files,
     _build_tree,
     _load_rubric,
     _read_generated_docs,
     _read_readme,
-    _sample_source_files,
     build_packet,
 )
 
@@ -55,21 +55,29 @@ class TestBuildTree:
         assert ".hidden" not in tree
 
 
-class TestSampleSourceFiles:
-    def test_samples_python_files(self) -> None:
-        result = _sample_source_files(FIXTURES, "python")
+class TestAllSourceFiles:
+    def test_includes_python_files(self) -> None:
+        result = _all_source_files(FIXTURES, "python")
         assert "app.py" in result
         assert "models.py" in result
+
+    def test_includes_all_files_no_truncation(self) -> None:
+        result = _all_source_files(FIXTURES, "python")
+        # Should say "All N source files included", not "budget exceeded"
+        assert "source files included" in result
+        assert "budget exceeded" not in result
+        assert "truncated" not in result
+        assert "not shown" not in result
 
     def test_respects_language_filter(self, tmp_path: Path) -> None:
         (tmp_path / "Main.java").write_text("public class Main {}")
         (tmp_path / "script.py").write_text("print('hi')")
-        result = _sample_source_files(tmp_path, "java")
+        result = _all_source_files(tmp_path, "java")
         assert "Main.java" in result
         assert "script.py" not in result
 
     def test_returns_message_when_no_files(self, tmp_path: Path) -> None:
-        result = _sample_source_files(tmp_path, "python")
+        result = _all_source_files(tmp_path, "python")
         assert "No source files found" in result
 
 
@@ -120,7 +128,7 @@ class TestBuildPacket:
         assert "Eval Packet: sample" in content
         assert "Judging Rubric" in content
         assert "Directory Structure" in content
-        assert "Source Code Samples" in content
+        assert "Source Code (complete)" in content
         assert "Generated Documentation" in content
         assert "app.py" in content
         assert "Flask app with Celery" in content

@@ -2,17 +2,17 @@
 
 A review packet is a self-contained markdown file that gives Claude Code
 everything it needs to judge the quality of teach's output for a repo:
-the judging rubric, repo metadata, source samples, and all generated docs.
+the judging rubric, repo metadata, ALL source code, and all generated docs.
+
+All test repos are < 20K lines, so we include every source file in full —
+no sampling, no truncation. The judge needs complete source to catch both
+hallucinations (claims not in the code) and omissions (code not in the docs).
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-
-
-# Max tokens worth of source files to include (~4 chars/token).
-SOURCE_BUDGET_CHARS = 120_000  # ~30K tokens
 
 
 def build_packet(
@@ -43,11 +43,11 @@ def build_packet(
     sections.append(f"**Repo path:** `{repo_path}`\n")
     sections.append(rubric)
 
-    # Repo README
+    # Repo README (full text)
     readme = _read_readme(repo_path)
     if readme:
-        sections.append("---\n## Repo README (excerpt)\n")
-        sections.append(readme[:5000])
+        sections.append("---\n## Repo README\n")
+        sections.append(readme)
 
     # Directory tree
     sections.append("---\n## Directory Structure\n")
@@ -55,9 +55,9 @@ def build_packet(
     sections.append(_build_tree(repo_path))
     sections.append("```")
 
-    # Source samples
-    sections.append("---\n## Source Code Samples\n")
-    sections.append(_sample_source_files(repo_path, language))
+    # All source files
+    sections.append("---\n## Source Code (complete)\n")
+    sections.append(_all_source_files(repo_path, language))
 
     # Generated docs (full text)
     sections.append("---\n## Generated Documentation (teach output)\n")
@@ -123,8 +123,12 @@ def _tree_walk(
         lines.append(f"{indent}... and {len(files) - 15} more files")
 
 
-def _sample_source_files(repo_path: Path, language: str) -> str:
-    """Select and include source files, staying within the token budget."""
+def _all_source_files(repo_path: Path, language: str) -> str:
+    """Include every source file in full. No sampling, no truncation.
+
+    All test repos are < 20K lines, so including everything is safe and
+    gives the judge complete visibility to catch omissions and hallucinations.
+    """
     ext_map = {
         "python": {".py"},
         "java": {".java"},
@@ -142,7 +146,6 @@ def _sample_source_files(repo_path: Path, language: str) -> str:
 
     source_files: list[Path] = []
     for root_dir, dirs, files in os.walk(repo_path):
-        # Prune skipped directories
         dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith(".")]
         for fname in files:
             fpath = Path(root_dir) / fname
@@ -153,44 +156,18 @@ def _sample_source_files(repo_path: Path, language: str) -> str:
     source_files.sort(key=lambda p: (len(p.relative_to(repo_path).parts), p.name))
 
     chunks: list[str] = []
-    chars_used = 0
-
     for fpath in source_files:
-        if chars_used >= SOURCE_BUDGET_CHARS:
-            remaining = len(source_files) - len(chunks)
-            if remaining > 0:
-                chunks.append(f"\n*({remaining} more source files not shown — budget exceeded)*\n")
-            break
-
         try:
             content = fpath.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-
         rel = fpath.relative_to(repo_path)
-        header = f"\n### `{rel}`\n```{language}\n"
-        footer = "\n```\n"
-        entry = header + content + footer
-
-        if chars_used + len(entry) > SOURCE_BUDGET_CHARS:
-            # Truncate this file to fit remaining budget
-            remaining_chars = SOURCE_BUDGET_CHARS - chars_used - len(header) - len(footer) - 50
-            if remaining_chars > 500:
-                entry = header + content[:remaining_chars] + "\n... (truncated)\n" + footer
-            else:
-                remaining = len(source_files) - len(chunks)
-                chunks.append(f"\n*({remaining} more source files not shown — budget exceeded)*\n")
-                break
-
-        chunks.append(entry)
-        chars_used += len(entry)
+        chunks.append(f"\n### `{rel}`\n```{language}\n{content}\n```\n")
 
     if not chunks:
         return "*No source files found.*\n"
 
-    prefix = "\n###"
-    shown = len([c for c in chunks if c.startswith(prefix)])
-    return f"Showing {shown} of {len(source_files)} source files.\n" + "".join(chunks)
+    return f"All {len(chunks)} source files included.\n" + "".join(chunks)
 
 
 def _read_generated_docs(output_dir: Path) -> str:

@@ -27,7 +27,7 @@ eval/.cache/runs/latest/<slug>/packet.md
 
 Each packet contains:
 - The judging rubric (scoring dimensions and verdict format)
-- The repo's README and source code samples (ground truth)
+- The repo's README and complete source code (ground truth — every source file, no sampling)
 - The generated documentation and diagrams (what you are judging)
 
 **For each repo**, carefully compare the generated docs against the source code and produce a verdict following the rubric format. Focus on:
