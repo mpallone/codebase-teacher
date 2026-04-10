@@ -29,6 +29,9 @@ dev = [
     "pytest-asyncio>=0.21",
     "pytest-cov>=4.0",
 ]
+eval = [
+    "pyyaml>=6",
+]
 
 [project.scripts]
 teach = "codebase_teacher.cli.app:cli"

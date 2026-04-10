@@ -1,0 +1,27 @@
+# Test repos for the eval harness.
+# Each repo is pinned to a specific commit for reproducibility.
+# All repos are < 20K source lines.
+
+flask:
+  url: https://github.com/pallets/flask.git
+  commit: 2ac89889f4cc330eabd50f295dcef02828522c69
+  language: python
+  description: Canonical Python web framework. Heavy decorator use tests AST API detector.
+
+javalin:
+  url: https://github.com/javalin/javalin.git
+  commit: 152f7b30c8ef9ac620bb1ba3003a5c24047538c5
+  language: java
+  description: Lightweight Java web framework. Routes, middleware, WebSocket support.
+
+cask:
+  url: https://github.com/com-lihaoyi/cask.git
+  commit: 872dfbe8766a3d01af6bfbf3a063298c1be4e2bb
+  language: scala
+  description: Small Scala web framework. Decorator-based, Flask-inspired.
+
+terraform-aws-vpc:
+  url: https://github.com/terraform-aws-modules/terraform-aws-vpc.git
+  commit: 3ffbd46fb1c7733e1b34d8666893280454e27436
+  language: terraform
+  description: Canonical AWS VPC Terraform module. Subnets, NAT gateways, route tables.
