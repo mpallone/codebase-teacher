@@ -11,9 +11,13 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and CLI flags."""
 
+    provider: str = Field(
+        default="claude-code",
+        description="LLM provider backend: claude-code or litellm",
+    )
     model: str = Field(
         default="anthropic/claude-sonnet-4-20250514",
-        description="LLM model in litellm format (provider/model)",
+        description="LLM model in litellm format (provider/model). Only used with litellm provider.",
     )
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     max_tokens: int = Field(

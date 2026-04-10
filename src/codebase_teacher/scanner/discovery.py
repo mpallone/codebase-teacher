@@ -99,6 +99,33 @@ def _add_to_tree(tree: Tree, path: Path, max_depth: int, current_depth: int) -> 
         tree.add(f"[dim]{len(files)} files[/]")
 
 
+def auto_select_all(
+    root: Path,
+    db: Database,
+    project_id: int,
+    console: Console | None = None,
+) -> list[str]:
+    """Non-interactive: mark all discovered folders as relevant.
+
+    Use this instead of interactive_folder_selection() when running headlessly
+    (e.g. from Claude Code on iOS via --auto flag).
+    """
+    console = console or Console()
+    folders = discover_folders(root)
+    relevant: list[str] = []
+
+    for folder in folders:
+        rel_path = str(folder.relative_to(root))
+        db.set_folder_status(project_id, rel_path, "relevant")
+        relevant.append(rel_path)
+
+    if not relevant:
+        relevant = ["."]
+
+    console.print(f"[green]Auto-selected {len(relevant)} folder(s).[/]")
+    return relevant
+
+
 def interactive_folder_selection(
     root: Path,
     db: Database,

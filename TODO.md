@@ -1,5 +1,17 @@
 # TODO
 
+## Future CLI Providers
+
+- [ ] Add Codex CLI provider (`codex`)
+- [ ] Add Windsurf CLI provider
+- [ ] Add Gemini CLI provider
+
+## Claude Code Integration
+
+- [ ] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+
+## Existing
+
 - README documentation describing how to use the tool.
 - README documentation describing how to set up the tool for the first time.
 - Automated end-to-end LLM-judged test harness:

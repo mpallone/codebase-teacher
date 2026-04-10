@@ -12,7 +12,7 @@ from rich.console import Console
 from codebase_teacher.core.config import Settings
 from codebase_teacher.generator.diagrams import generate_all_diagrams
 from codebase_teacher.generator.docs import generate_all_docs
-from codebase_teacher.llm.litellm_adapter import LiteLLMProvider
+from codebase_teacher.llm.factory import create_provider
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.database import Database
 from codebase_teacher.storage.models import AnalysisResult
@@ -28,11 +28,13 @@ def generate(ctx: click.Context, path: str, gen_type: str) -> None:
     """Generate documentation and diagrams from analysis results."""
     root = Path(path)
     settings = Settings()
+    if ctx.obj.get("provider"):
+        settings.provider = ctx.obj["provider"]
     if ctx.obj.get("model"):
         settings.model = ctx.obj["model"]
 
     console.print(f"\n[bold]Generating content for:[/] {root}")
-    console.print(f"[dim]Model: {settings.model}[/]")
+    console.print(f"[dim]Provider: {settings.provider}[/]")
     console.print(f"[dim]Output: {settings.output_path(root)}[/]")
 
     asyncio.run(_generate_async(root, settings, gen_type))
@@ -50,7 +52,7 @@ async def _generate_async(root: Path, settings: Settings, gen_type: str) -> None
         return
 
     # Set up LLM and artifact store
-    provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
+    provider = create_provider(settings)
     output_dir = settings.output_path(root)
     store = ArtifactStore(output_dir, db, project_id)
 
