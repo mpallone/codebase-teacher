@@ -13,7 +13,14 @@
 ## Real Repo Testing
 
 - [x] Add httpbin (`postmanlabs/httpbin`) as first test repo (git submodule in `tests/repos/`)
-- [ ] Run tool against httpbin and evaluate output quality
+- [x] Run tool against httpbin and evaluate output quality
+- [ ] Bug: Infrastructure detection returned 0 results for httpbin despite Dockerfile existing.
+  The scan step correctly detected Docker (`Infrastructure detected: Docker (containerization)`)
+  but the analyze step's LLM infrastructure detection produced 0 `InfraComponent` objects, so
+  `infrastructure.md` is empty. Likely cause: scan-detected infra hints aren't passed through
+  to the LLM infra detection prompt, or the prompt is biased toward databases/queues and ignores
+  Dockerfiles. Investigate `analyzer/infra_detector.py` and the `detect_infrastructure()` call
+  in `cli/analyze.py`.
 - [ ] Add fastapi-realworld-example-app as tier 2 test repo
 - [ ] Add spring-petclinic (Java) as tier 3 test repo
 - [ ] Add a small Terraform repo to exercise HCL parsing
