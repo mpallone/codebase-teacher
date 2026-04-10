@@ -125,8 +125,8 @@ class TestComplete:
         assert "--output-format" in args
         assert "json" in args
         assert "--tools" in args
-        assert "" in args
-        assert "--append-system-prompt" in args
+        assert "--setting-sources" in args
+        assert "--system-prompt" in args
         assert "System prompt." in args
 
     async def test_no_system_prompt_skips_flag(self, provider):
@@ -136,7 +136,7 @@ class TestComplete:
             await provider.complete(messages)
 
         args = mock_exec.call_args[0]
-        assert "--append-system-prompt" not in args
+        assert "--system-prompt" not in args
 
     async def test_nonzero_exit_raises(self, provider):
         proc = _make_process(stdout="", stderr="Error: something went wrong", returncode=1)

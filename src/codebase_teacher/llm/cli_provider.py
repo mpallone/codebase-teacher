@@ -70,9 +70,10 @@ class ClaudeCodeProvider:
             "-p", user_prompt,
             "--output-format", "json",
             "--tools", "",
+            "--setting-sources", "",
         ]
         if system_prompt:
-            cmd.extend(["--append-system-prompt", system_prompt])
+            cmd.extend(["--system-prompt", system_prompt])
 
         try:
             proc = await asyncio.create_subprocess_exec(
