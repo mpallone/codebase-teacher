@@ -191,6 +191,61 @@ def test_merge_substring_match_is_deduped():
     assert merged[0].usage == "rich usage"
 
 
+def test_merge_generic_sql_does_not_replace_postgresql():
+    """Regression: a generic LLM 'SQL' entry must not replace a specific baseline.
+
+    The original substring-based dedup collapsed 'SQL' into 'PostgreSQL' because
+    'sql' is a substring of 'postgresql', silently downgrading the richer
+    baseline. Normalized exact-match dedup should keep them distinct.
+    """
+    baseline = [
+        InfraComponent(
+            type="database",
+            technology="PostgreSQL",
+            explanation="Rich baseline explanation",
+            usage="Baseline usage",
+        )
+    ]
+    llm = [
+        InfraComponent(
+            type="database",
+            technology="SQL",
+            explanation="Generic SQL",
+            usage="generic",
+        )
+    ]
+    merged = _merge_components(baseline, llm)
+    techs = {c.technology for c in merged}
+    assert "PostgreSQL" in techs
+    assert "SQL" in techs
+    # The baseline PostgreSQL entry must still be present unchanged.
+    postgres = next(c for c in merged if c.technology == "PostgreSQL")
+    assert postgres.explanation == "Rich baseline explanation"
+
+
+def test_merge_docker_does_not_replace_kubernetes():
+    """Two distinct container-related technologies should stay separate."""
+    baseline = [
+        InfraComponent(
+            type="orchestration",
+            technology="Kubernetes",
+            explanation="K8s",
+            usage="",
+        )
+    ]
+    llm = [
+        InfraComponent(
+            type="container",
+            technology="Docker",
+            explanation="docker",
+            usage="",
+        )
+    ]
+    merged = _merge_components(baseline, llm)
+    techs = {c.technology for c in merged}
+    assert techs == {"Kubernetes", "Docker"}
+
+
 # --- detect_infrastructure integration ---
 
 

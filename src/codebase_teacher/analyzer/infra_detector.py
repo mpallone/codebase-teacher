@@ -376,17 +376,35 @@ def _baseline_from_hints(hints: list[str]) -> list[InfraComponent]:
     return baseline
 
 
+def _normalize_tech(tech: str) -> str:
+    """Extract the primary technology name for dedup comparison.
+
+    Lowercases and strips any parenthetical or slash-qualified suffix, so
+    both ``"Docker"`` and ``"Docker (containerization)"`` normalize to
+    ``"docker"``. Deliberately does NOT collapse distinct technologies that
+    happen to share a substring: ``"SQL"`` and ``"PostgreSQL"`` remain
+    different, so a generic LLM entry doesn't silently replace a specific
+    baseline entry.
+    """
+    primary = tech.split("(")[0].split("/")[0].strip().lower()
+    return primary
+
+
 def _merge_components(
     baseline: list[InfraComponent],
     llm_components: list[InfraComponent],
 ) -> list[InfraComponent]:
     """Merge LLM components into the baseline, deduping by technology.
 
-    If the LLM returns an entry whose technology matches a baseline entry
-    (case-insensitive substring match either way), the LLM entry replaces
-    the baseline entry — the LLM usually has richer usage and config
-    details pulled from actual source files. Any LLM entries that don't
-    match are appended.
+    If the LLM returns an entry whose normalized technology name exactly
+    matches a baseline entry, the LLM entry replaces the baseline entry —
+    the LLM usually has richer usage and config details pulled from actual
+    source files. Any LLM entries that don't match are appended.
+
+    Normalization (see :func:`_normalize_tech`) only strips parenthetical
+    qualifiers and lowercases. It does not do substring matching, so a
+    generic LLM entry like ``"SQL"`` will not collapse a specific baseline
+    entry like ``"PostgreSQL"``.
     """
     if not llm_components:
         return list(baseline)
@@ -394,17 +412,17 @@ def _merge_components(
     merged: list[InfraComponent] = list(baseline)
 
     for llm_comp in llm_components:
-        llm_tech = llm_comp.technology.strip().lower()
+        llm_tech = _normalize_tech(llm_comp.technology)
         if not llm_tech:
             merged.append(llm_comp)
             continue
 
         replaced = False
         for i, existing in enumerate(merged):
-            existing_tech = existing.technology.strip().lower()
+            existing_tech = _normalize_tech(existing.technology)
             if not existing_tech:
                 continue
-            if llm_tech == existing_tech or llm_tech in existing_tech or existing_tech in llm_tech:
+            if llm_tech == existing_tech:
                 merged[i] = llm_comp
                 replaced = True
                 break
