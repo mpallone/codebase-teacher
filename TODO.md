@@ -1,5 +1,20 @@
 # TODO
 
+## Generated Output Improvements
+
+- [ ] Add a friendly overview document to generated output (e.g. a README.md or "Start Here" page).
+  The current docs (architecture.md, api-reference.md) are thorough but can feel overwhelming.
+  The overview should answer upfront:
+  - **What does this codebase do?** Plain-language purpose, not implementation details.
+  - **Why is it valuable?** Business value, who uses it, what problem it solves.
+    Include concrete examples (hypothetical is fine). E.g. for httpbin: "An HTTP client
+    library author uses httpbin to verify their library correctly handles gzip responses,
+    digest auth, and redirect chains — without standing up a custom test server."
+  - **High-level codebase walkthrough.** A short, skimmable tour of the major pieces
+    and how they connect. Not every file — just enough that a dev can orient themselves
+    in a few minutes. Think "trail map", not "street-by-street atlas."
+  This should be the first thing a new developer reads before diving into architecture.md.
+
 ## Future CLI Providers
 
 - [ ] Add Codex CLI provider (`codex`)
@@ -8,7 +23,26 @@
 
 ## Claude Code Integration
 
-- [ ] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+- [x] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+
+## Real Repo Testing
+
+- [x] Add httpbin (`postmanlabs/httpbin`) as first test repo (git submodule in `tests/repos/`)
+- [x] Run tool against httpbin and evaluate output quality
+- [ ] Bug: Infrastructure detection returned 0 results for httpbin despite Dockerfile existing.
+  The scan step correctly detected Docker (`Infrastructure detected: Docker (containerization)`)
+  but the analyze step's LLM infrastructure detection produced 0 `InfraComponent` objects, so
+  `infrastructure.md` is empty. Likely cause: scan-detected infra hints aren't passed through
+  to the LLM infra detection prompt, or the prompt is biased toward databases/queues and ignores
+  Dockerfiles. Investigate `analyzer/infra_detector.py` and the `detect_infrastructure()` call
+  in `cli/analyze.py`.
+- [ ] Add fastapi-realworld-example-app as tier 2 test repo
+- [ ] Add spring-petclinic (Java) as tier 3 test repo
+- [ ] Add a small Terraform repo to exercise HCL parsing
+- [ ] Once confidence in the tool is established, externalize or remove the test repo
+  submodules from this project. The submodules are a development-time scaffold,
+  not a permanent part of the repo. Options: move to a separate test-harness repo,
+  or rely on the subagent to clone repos on-the-fly instead.
 
 ## Existing
 
