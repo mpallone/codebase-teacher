@@ -10,8 +10,10 @@ You are running the codebase-teacher evaluation loop. Your job is to:
 Run the prep command to clone test repos, run `teach analyze` + `teach generate` against each, and build review packets:
 
 ```bash
-cd /home/user/codebase-teacher && python -m eval prep --repos all
+cd /home/user/codebase-teacher && python -m eval prep --repos all --provider claude-code
 ```
+
+This uses the `claude-code` provider, which routes LLM calls through the `claude` CLI and your subscription — no API key needed.
 
 This will create review packets under `eval/.cache/runs/latest/<slug>/packet.md`.
 
@@ -71,7 +73,7 @@ done
 Then re-run:
 
 ```bash
-python -m eval prep --repos all
+python -m eval prep --repos all --provider claude-code
 ```
 
 Go back to Step 2 and judge again.

@@ -32,7 +32,12 @@ def clone(slug: str | None) -> None:
 
 @cli.command()
 @click.argument("slug", required=False)
-def analyze(slug: str | None) -> None:
+@click.option(
+    "--provider", envvar="CODEBASE_TEACHER_PROVIDER", default="litellm",
+    type=click.Choice(["litellm", "claude-code"]),
+    help="LLM backend: 'litellm' (API key) or 'claude-code' (CLI subscription)",
+)
+def analyze(slug: str | None, provider: str) -> None:
     """Run teach analyze + generate against a cloned repo (or all repos)."""
     repos = load_repos()
     targets = _resolve_targets(repos, slug)
@@ -41,8 +46,8 @@ def analyze(slug: str | None) -> None:
         if not repo_path.exists():
             click.echo(f"Repo {name} not cloned yet. Run `python -m eval clone {name}` first.")
             sys.exit(1)
-        click.echo(f"Analyzing {name}...")
-        result = run_teach(repo_path)
+        click.echo(f"Analyzing {name} (provider={provider})...")
+        result = run_teach(repo_path, provider=provider)
         click.echo(f"  exit_code={result.exit_code}  wall_time={result.wall_time:.1f}s")
         if result.exit_code != 0:
             click.echo(f"  stderr: {result.stderr[-500:]}")
@@ -77,7 +82,12 @@ def packet(slug: str | None) -> None:
 
 @cli.command()
 @click.option("--repos", default="all", help="Comma-separated repo slugs or 'all'")
-def prep(repos: str) -> None:
+@click.option(
+    "--provider", envvar="CODEBASE_TEACHER_PROVIDER", default="litellm",
+    type=click.Choice(["litellm", "claude-code"]),
+    help="LLM backend: 'litellm' (API key) or 'claude-code' (CLI subscription)",
+)
+def prep(repos: str, provider: str) -> None:
     """Clone, analyze, and build packets for repos (the main command)."""
     from eval.packet import build_packet
 
@@ -97,7 +107,7 @@ def prep(repos: str) -> None:
     click.echo(f"Run directory: {run_dir}\n")
 
     for name, info in targets.items():
-        click.echo(f"=== {name} ({info.get('language', '?')}) ===")
+        click.echo(f"=== {name} ({info.get('language', '?')}) [provider={provider}] ===")
 
         # Clone
         click.echo("  Cloning...")
@@ -105,7 +115,7 @@ def prep(repos: str) -> None:
 
         # Analyze
         click.echo("  Running teach analyze + generate...")
-        result = run_teach(repo_path)
+        result = run_teach(repo_path, provider=provider)
         click.echo(f"  exit_code={result.exit_code}  wall_time={result.wall_time:.1f}s")
         if result.exit_code != 0:
             click.echo(f"  FAILED: {result.stderr[-500:]}")

@@ -15,6 +15,10 @@ class Settings(BaseSettings):
         default="anthropic/claude-sonnet-4-20250514",
         description="LLM model in litellm format (provider/model)",
     )
+    provider: str = Field(
+        default="litellm",
+        description="LLM provider backend: 'litellm' (needs API key) or 'claude-code' (uses claude CLI subscription)",
+    )
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     max_tokens: int = Field(
         default=16384,

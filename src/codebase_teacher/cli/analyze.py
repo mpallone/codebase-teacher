@@ -18,6 +18,7 @@ from codebase_teacher.analyzer.infra_detector import detect_infrastructure
 from codebase_teacher.core.config import Settings
 from codebase_teacher.llm.context_manager import ContextManager
 from codebase_teacher.llm.litellm_adapter import LiteLLMProvider
+from codebase_teacher.llm.claude_code_adapter import ClaudeCodeProvider
 from codebase_teacher.scanner.dependency import detect_dependencies
 from codebase_teacher.storage.database import Database
 from codebase_teacher.storage.models import AnalysisResult
@@ -34,9 +35,11 @@ def analyze(ctx: click.Context, path: str) -> None:
     settings = Settings()
     if ctx.obj.get("model"):
         settings.model = ctx.obj["model"]
+    if ctx.obj.get("provider"):
+        settings.provider = ctx.obj["provider"]
 
     console.print(f"\n[bold]Analyzing codebase:[/] {root}")
-    console.print(f"[dim]Model: {settings.model}[/]")
+    console.print(f"[dim]Model: {settings.model}  Provider: {settings.provider}[/]")
 
     asyncio.run(_analyze_async(root, settings))
 
@@ -82,9 +85,14 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
         db.close()
         return
 
-    # Initialize LLM
-    provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
-    ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
+    # Initialize LLM provider
+    if settings.provider == "claude-code":
+        provider = ClaudeCodeProvider(model=settings.model, max_tokens=settings.max_tokens)
+        # Sequential calls through the CLI — no parallelism
+        ctx_manager = ContextManager(provider, max_concurrent=1)
+    else:
+        provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
+        ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
 
     result = AnalysisResult()
 

@@ -86,18 +86,23 @@ def clone_or_update(slug: str, url: str, commit: str, repos_dir: Path) -> Path:
     return repo_path
 
 
-def run_teach(repo_path: Path) -> RunResult:
+def run_teach(repo_path: Path, provider: str = "litellm") -> RunResult:
     """Run teach analyze + generate against a repo.
 
     Skips `teach scan` (interactive). analyze falls back to root
     directory when no scan data exists (analyze.py:50-56).
+
+    Args:
+        repo_path: Path to the cloned repo.
+        provider: LLM backend — 'litellm' (API key) or 'claude-code' (CLI subscription).
     """
     result = RunResult()
     start = time.monotonic()
 
     # Run analyze
+    cmd = ["teach", "--provider", provider, "analyze", str(repo_path)]
     proc = subprocess.run(
-        ["teach", "analyze", str(repo_path)],
+        cmd,
         capture_output=True,
         text=True,
         timeout=600,  # 10 minute timeout
