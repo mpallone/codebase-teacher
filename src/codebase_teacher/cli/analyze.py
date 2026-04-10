@@ -154,6 +154,15 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
             **{f["file_path"]: _read_file(root, f["file_path"]) for f in db.get_files_by_category(project_id, "config")},
             **{f["file_path"]: _read_file(root, f["file_path"]) for f in db.get_files_by_category(project_id, "infra")},
         }
+        # Fallback: always pull in well-known top-level infra files directly
+        # from the filesystem. If `teach scan` wasn't run, the db lookups above
+        # return nothing and the Dockerfile/terraform config would never reach
+        # the LLM. See TODO #9.
+        for rel_path in _discover_top_level_infra_files(root):
+            if rel_path not in infra_files:
+                content = _read_file(root, rel_path)
+                if content:
+                    infra_files[rel_path] = content
         # Add a subset of source files too
         for path, content in list(file_contents.items())[:20]:
             infra_files[path] = content
@@ -205,6 +214,29 @@ def _read_file(root: Path, rel_path: str) -> str:
         return (root / rel_path).read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
+
+
+_TOP_LEVEL_INFRA_NAMES = (
+    "Dockerfile",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+)
+
+
+def _discover_top_level_infra_files(root: Path) -> list[str]:
+    """Find well-known infrastructure files at the repo root.
+
+    Scans only the top level (not recursive) to keep this cheap. Catches
+    Dockerfile, docker-compose files, and any *.tf files sitting at the root.
+    """
+    discovered: list[str] = []
+    for name in _TOP_LEVEL_INFRA_NAMES:
+        if (root / name).is_file():
+            discovered.append(name)
+    for tf_file in sorted(root.glob("*.tf")):
+        if tf_file.is_file():
+            discovered.append(tf_file.name)
+    return discovered
 
 
 def _group_by_module(file_summaries: list) -> dict:
