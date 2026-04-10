@@ -71,6 +71,14 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
 
     console.print(f"[bold]Source files to analyze:[/] {len(source_files)}")
 
+    # Check cache before spending LLM tokens
+    content_hash = _compute_hash(source_files, root)
+    cached = db.get_cached_analysis(project_id, "full_analysis", content_hash)
+    if cached:
+        console.print("[green]Cache hit — skipping LLM analysis (source unchanged).[/]")
+        db.close()
+        return
+
     # Initialize LLM
     provider = LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
     ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
