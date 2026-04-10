@@ -140,6 +140,87 @@ Codebase Teacher works from the Claude iOS app via Claude Code. All LLM calls ro
 teach scan --auto /path/to/project && teach analyze /path/to/project && teach generate /path/to/project
 ```
 
+## Example
+
+Running against the included sample project (a small Flask API with Celery tasks):
+
+```bash
+$ teach scan --auto tests/fixtures/sample_project
+
+Scanning codebase: tests/fixtures/sample_project
+
+Step 1: Folder Discovery
+Auto-selected 1 folder(s).
+
+Step 2: Classifying files...
+
+Files classified: 8 total
+  build: 1
+  config: 1
+  source: 3
+  unknown: 3
+
+Languages detected:
+  python: 3 files
+
+Step 3: Analyzing dependencies...
+
+Dependency files found: requirements.txt
+Dependencies: 5 packages
+
+Infrastructure detected:
+  - Redis (cache/store)
+  - Celery (task queue)
+  - SQL Database (via SQLAlchemy)
+  - PostgreSQL
+  - Flask (HTTP framework)
+
+Scan complete! Run teach analyze {path} next.
+```
+
+```bash
+$ teach analyze tests/fixtures/sample_project
+
+Analyzing codebase: tests/fixtures/sample_project
+Provider: claude-code
+Source files to analyze: 3
+  Found 5 functions, 1 classes, 5 imports
+  AST parsing complete
+  AST API detection complete
+  File summaries complete
+  Module summaries complete
+  Project summary complete
+  API detection complete
+  Infrastructure detection complete
+  Data flow tracing complete
+
+Analysis complete!
+  APIs: 5
+  Infrastructure: 0
+  Data flows: 5
+
+Run teach generate tests/fixtures/sample_project to produce documentation.
+```
+
+```bash
+$ teach generate tests/fixtures/sample_project
+
+Generating content for: tests/fixtures/sample_project
+Provider: claude-code
+Output: tests/fixtures/sample_project/.teacher-output
+
+Generating documentation...
+  Created: .teacher-output/docs/architecture.md
+  Created: .teacher-output/docs/api-reference.md
+  Created: .teacher-output/docs/infrastructure.md
+
+Generating diagrams...
+  Created: .teacher-output/diagrams/architecture.md
+  Created: .teacher-output/diagrams/data-flow.md
+
+Generated 5 files!
+```
+
 ## Development
 
 ```bash
