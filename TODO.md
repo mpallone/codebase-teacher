@@ -12,8 +12,6 @@
 
 ## Existing
 
-- README documentation describing how to use the tool.
-- README documentation describing how to set up the tool for the first time.
 - Automated end-to-end LLM-judged test harness:
   - Need to test this stuff against a codebase.
   - Have a mock codebase as a test artifact. Mock codebase should be complex enough to exercise all features of codebase-teacher.
