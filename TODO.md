@@ -14,6 +14,14 @@
     and how they connect. Not every file — just enough that a dev can orient themselves
     in a few minutes. Think "trail map", not "street-by-street atlas."
   This should be the first thing a new developer reads before diving into architecture.md.
+- [ ] Explore HTML output as an alternative (or complement) to markdown.
+  HTML could be friendlier for reading generated docs:
+  - Collapsible sections — hide detail until you need it, less overwhelming
+  - Live Mermaid diagram rendering — see actual diagrams, not code blocks
+  - Sidebar navigation — jump between docs/sections without scrolling
+  - Styled visual hierarchy — guide the eye to what matters first
+  Markdown still renders well on GitHub and is easy to edit. Could do both:
+  markdown as source of truth, HTML as the polished browsable output.
 
 ## Future CLI Providers
 
