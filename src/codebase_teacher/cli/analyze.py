@@ -58,11 +58,14 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
     source_files_data = db.get_files_by_category(project_id, "source")
     source_files = [f["file_path"] for f in source_files_data]
     if not source_files:
-        # Fall back: find Python files in relevant folders
+        # Fall back: find source files by extension in relevant folders
+        from codebase_teacher.scanner.file_classifier import LANGUAGE_MAP
+        source_extensions = set(LANGUAGE_MAP.keys())
         for folder_rel in relevant_folders:
             folder = root / folder_rel if folder_rel != "." else root
-            for py_file in folder.rglob("*.py"):
-                source_files.append(str(py_file.relative_to(root)))
+            for src_file in folder.rglob("*"):
+                if src_file.is_file() and src_file.suffix in source_extensions:
+                    source_files.append(str(src_file.relative_to(root)))
 
     if not source_files:
         console.print("[red]No source files found to analyze.[/]")
