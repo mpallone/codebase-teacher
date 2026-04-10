@@ -28,6 +28,7 @@ Output is written to `.teacher-output/` inside the target project:
 ```
 .teacher-output/
 ├── docs/
+│   ├── overview.md          # "Start Here" — plain-language intro + walkthrough
 │   ├── architecture.md      # System overview with Mermaid diagrams
 │   ├── api-reference.md     # HTTP endpoints, gRPC, CLI commands
 │   └── infrastructure.md    # Databases, queues, cloud services
@@ -35,6 +36,10 @@ Output is written to `.teacher-output/` inside the target project:
     ├── architecture.md      # Mermaid architecture diagram
     └── data-flow.md         # Mermaid data flow / sequence diagrams
 ```
+
+Start with `docs/overview.md` — it's a short, friendly tour of what the
+codebase does, why it exists, and how the major pieces connect. Then dive into
+`architecture.md` for the deeper design details.
 
 ## Commands
 
@@ -210,6 +215,7 @@ Provider: claude-code
 Output: tests/fixtures/sample_project/.teacher-output
 
 Generating documentation...
+  Created: .teacher-output/docs/overview.md
   Created: .teacher-output/docs/architecture.md
   Created: .teacher-output/docs/api-reference.md
   Created: .teacher-output/docs/infrastructure.md
@@ -218,7 +224,7 @@ Generating diagrams...
   Created: .teacher-output/diagrams/architecture.md
   Created: .teacher-output/diagrams/data-flow.md
 
-Generated 5 files!
+Generated 6 files!
 ```
 
 ## Development

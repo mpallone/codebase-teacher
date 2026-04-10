@@ -28,6 +28,45 @@ def _get_jinja_env() -> Environment:
     )
 
 
+async def generate_overview_doc(
+    provider: LLMProvider,
+    analysis: AnalysisResult,
+    store: ArtifactStore,
+) -> Path:
+    """Generate a friendly 'Start Here' overview document.
+
+    This is the first thing a new developer should read — it answers what the
+    codebase does, why it exists, and how it's laid out at a high level. It is
+    deliberately kept short and skimmable so the reader can orient themselves
+    before diving into the deeper architecture and API docs.
+    """
+    prompt = PROMPTS["generate_overview_doc"]
+    messages = [
+        Message(role="system", content=prompt.format_system()),
+        Message(
+            role="user",
+            content=prompt.format_user(
+                project_summary=analysis.project_summary or "No project summary available.",
+                module_summaries=_format_module_summaries(analysis.module_summaries),
+                infrastructure=_format_infrastructure(analysis.infrastructure),
+                apis=_format_apis(analysis.api_endpoints),
+                data_flows=_format_data_flows(analysis.data_flows),
+            ),
+        ),
+    ]
+
+    response = await provider.complete(messages)
+
+    env = _get_jinja_env()
+    template = env.get_template("doc_page.md.j2")
+    content = template.render(
+        title="Start Here",
+        body=response.content,
+    )
+
+    return store.write("docs", "overview.md", content)
+
+
 async def generate_architecture_doc(
     provider: LLMProvider,
     analysis: AnalysisResult,
@@ -144,8 +183,13 @@ async def generate_all_docs(
     analysis: AnalysisResult,
     store: ArtifactStore,
 ) -> list[Path]:
-    """Generate all documentation files."""
+    """Generate all documentation files.
+
+    Order matters for the returned list: the overview doc comes first so CLI
+    output presents it as the intended starting point for new readers.
+    """
     paths: list[Path] = []
+    paths.append(await generate_overview_doc(provider, analysis, store))
     paths.append(await generate_architecture_doc(provider, analysis, store))
     paths.append(await generate_api_doc(provider, analysis, store))
     paths.append(await generate_infra_doc(provider, analysis, store))
