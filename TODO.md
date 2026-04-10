@@ -8,7 +8,19 @@
 
 ## Claude Code Integration
 
-- [ ] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+- [x] Create Claude Code subagent (`.claude/agents/teach.md`) for one-command pipeline invocation
+
+## Real Repo Testing
+
+- [x] Add httpbin (`postmanlabs/httpbin`) as first test repo (git submodule in `tests/repos/`)
+- [ ] Run tool against httpbin and evaluate output quality
+- [ ] Add fastapi-realworld-example-app as tier 2 test repo
+- [ ] Add spring-petclinic (Java) as tier 3 test repo
+- [ ] Add a small Terraform repo to exercise HCL parsing
+- [ ] Once confidence in the tool is established, externalize or remove the test repo
+  submodules from this project. The submodules are a development-time scaffold,
+  not a permanent part of the repo. Options: move to a separate test-harness repo,
+  or rely on the subagent to clone repos on-the-fly instead.
 
 ## Existing
 
