@@ -1,5 +1,20 @@
 # TODO
 
+## Generated Output Improvements
+
+- [ ] Add a friendly overview document to generated output (e.g. a README.md or "Start Here" page).
+  The current docs (architecture.md, api-reference.md) are thorough but can feel overwhelming.
+  The overview should answer upfront:
+  - **What does this codebase do?** Plain-language purpose, not implementation details.
+  - **Why is it valuable?** Business value, who uses it, what problem it solves.
+    Include concrete examples (hypothetical is fine). E.g. for httpbin: "An HTTP client
+    library author uses httpbin to verify their library correctly handles gzip responses,
+    digest auth, and redirect chains — without standing up a custom test server."
+  - **High-level codebase walkthrough.** A short, skimmable tour of the major pieces
+    and how they connect. Not every file — just enough that a dev can orient themselves
+    in a few minutes. Think "trail map", not "street-by-street atlas."
+  This should be the first thing a new developer reads before diving into architecture.md.
+
 ## Future CLI Providers
 
 - [ ] Add Codex CLI provider (`codex`)
