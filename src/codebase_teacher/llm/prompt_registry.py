@@ -94,8 +94,14 @@ PROMPTS: dict[str, PromptTemplate] = {
             "- How it's used in this codebase (reference specific files when possible)\n"
             "- Configuration details if visible (ports, image tags, env vars, etc.)\n\n"
             "Return as JSON array with keys: type, technology, explanation, usage, config. "
-            "Return at minimum one entry per hint. If you truly find no infrastructure and "
+            "Return at minimum one entry per hint. Write each explanation from your own "
+            "knowledge — do not leave it blank. If you truly find no infrastructure and "
             "there are no hints, return an empty array [].\n\n"
+            "Example — given the hint 'Docker (containerization)' and a Dockerfile:\n"
+            '[{{"type": "container", "technology": "Docker", '
+            '"explanation": "Docker packages applications into portable container images.", '
+            '"usage": "Dockerfile builds a Python 3.11 image running gunicorn.", '
+            '"config": "EXPOSE 80"}}]\n\n'
             "{code_chunks}"
         ),
     ),
