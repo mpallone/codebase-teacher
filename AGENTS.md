@@ -2,9 +2,11 @@
 
 ## Verification Requirement
 
-After implementing changes, **ask the user** whether to launch a verification
-subagent before committing. Verification subagents burn LLM tokens, so the
-user decides when the cost is justified. If approved, the subagent should
+After implementing changes, **ask the user** whether to launch the repository's
+evaluation subagent (`.claude/agents/teach.md`) before committing. This
+subagent runs the full `teach scan → analyze → generate` pipeline against a
+test repo and evaluates the output quality. It burns LLM tokens, so the user
+decides when the cost is justified. If approved, the subagent should
 independently:
 
 1. Read the changed files and confirm the fix matches the task description.
