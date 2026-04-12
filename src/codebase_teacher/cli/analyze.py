@@ -22,6 +22,7 @@ from codebase_teacher.core.results import FileFailure, PartialResult
 from codebase_teacher.llm.context_manager import ContextManager
 from codebase_teacher.llm.factory import create_provider
 from codebase_teacher.scanner.dependency import detect_dependencies
+from codebase_teacher.scanner.file_classifier import classify_file
 from codebase_teacher.storage.database import Database
 from codebase_teacher.storage.models import AnalysisResult
 
@@ -207,6 +208,19 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
             **{f["file_path"]: _read_file_safe(root, f["file_path"]) for f in db.get_files_by_category(project_id, "config")},
             **{f["file_path"]: _read_file_safe(root, f["file_path"]) for f in db.get_files_by_category(project_id, "infra")},
         }
+        # Fallback: scan root-level files through the existing classifier.
+        # If `teach scan` wasn't run, the db lookups above return nothing and
+        # files like Dockerfile would never reach the LLM.  Reuses
+        # file_classifier's INFRA_PATTERNS / CONFIG_PATTERNS — no hardcoded
+        # filename list here.  See TODO #9.
+        for path in sorted(root.iterdir()):
+            if not path.is_file():
+                continue
+            info = classify_file(path, root)
+            if info.category in ("infra", "config") and info.path not in infra_files:
+                content = _read_file_safe(root, info.path)
+                if content:
+                    infra_files[info.path] = content
         # Add a subset of source files too
         for path, content in list(file_contents.items())[:20]:
             infra_files[path] = content
