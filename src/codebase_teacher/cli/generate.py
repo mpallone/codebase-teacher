@@ -15,6 +15,7 @@ from codebase_teacher.core.config import Settings
 from codebase_teacher.core.exceptions import AnalysisError
 from codebase_teacher.generator.diagrams import generate_all_diagrams
 from codebase_teacher.generator.docs import generate_all_docs
+from codebase_teacher.generator.html import generate_html_page
 from codebase_teacher.llm.factory import create_provider
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.database import Database
@@ -26,8 +27,15 @@ console = Console()
 @click.command()
 @click.argument("path", type=click.Path(exists=True, file_okay=False, resolve_path=True))
 @click.option("--type", "gen_type", type=click.Choice(["all", "docs", "diagrams"]), default="all")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["markdown", "html"]),
+    default="markdown",
+    help="Output format: markdown (default) or html (single-page self-contained HTML).",
+)
 @click.pass_context
-def generate(ctx: click.Context, path: str, gen_type: str) -> None:
+def generate(ctx: click.Context, path: str, gen_type: str, output_format: str) -> None:
     """Generate documentation and diagrams from analysis results."""
     root = Path(path)
     settings = Settings()
@@ -38,12 +46,15 @@ def generate(ctx: click.Context, path: str, gen_type: str) -> None:
 
     console.print(f"\n[bold]Generating content for:[/] {root}")
     console.print(f"[dim]Provider: {settings.provider}[/]")
+    console.print(f"[dim]Format: {output_format}[/]")
     console.print(f"[dim]Output: {settings.output_path(root)}[/]")
 
-    asyncio.run(_generate_async(root, settings, gen_type))
+    asyncio.run(_generate_async(root, settings, gen_type, output_format))
 
 
-async def _generate_async(root: Path, settings: Settings, gen_type: str) -> None:
+async def _generate_async(
+    root: Path, settings: Settings, gen_type: str, output_format: str = "markdown",
+) -> None:
     db = Database(settings.db_path(root))
     project_id = db.get_or_create_project(str(root), root.name)
 
@@ -68,25 +79,38 @@ async def _generate_async(root: Path, settings: Settings, gen_type: str) -> None
     generated: list[Path] = []
     all_errors: list[tuple[str, Exception]] = []
 
-    if gen_type in ("all", "docs"):
-        console.print("\n[bold cyan]Generating documentation...[/]")
-        doc_paths, doc_errors = await generate_all_docs(provider, analysis, store)
-        generated.extend(doc_paths)
-        all_errors.extend(doc_errors)
-        for p in doc_paths:
-            console.print(f"  [green]Created:[/] {p.relative_to(root)}")
-        for name, err in doc_errors:
+    if output_format == "html":
+        console.print("\n[bold cyan]Generating HTML documentation...[/]")
+        html_path, html_errors = await generate_html_page(
+            provider, analysis, store, project_name=root.name,
+        )
+        generated.append(html_path)
+        all_errors.extend(html_errors)
+        console.print(f"  [green]Created:[/] {html_path.relative_to(root)}")
+        for name, err in html_errors:
             console.print(f"  [red]Failed:[/] {name}: {err}")
+    else:
+        if gen_type in ("all", "docs"):
+            console.print("\n[bold cyan]Generating documentation...[/]")
+            doc_paths, doc_errors = await generate_all_docs(provider, analysis, store)
+            generated.extend(doc_paths)
+            all_errors.extend(doc_errors)
+            for p in doc_paths:
+                console.print(f"  [green]Created:[/] {p.relative_to(root)}")
+            for name, err in doc_errors:
+                console.print(f"  [red]Failed:[/] {name}: {err}")
 
-    if gen_type in ("all", "diagrams"):
-        console.print("\n[bold cyan]Generating diagrams...[/]")
-        diagram_paths, diagram_errors = await generate_all_diagrams(provider, analysis, store)
-        generated.extend(diagram_paths)
-        all_errors.extend(diagram_errors)
-        for p in diagram_paths:
-            console.print(f"  [green]Created:[/] {p.relative_to(root)}")
-        for name, err in diagram_errors:
-            console.print(f"  [red]Failed:[/] {name}: {err}")
+        if gen_type in ("all", "diagrams"):
+            console.print("\n[bold cyan]Generating diagrams...[/]")
+            diagram_paths, diagram_errors = await generate_all_diagrams(
+                provider, analysis, store,
+            )
+            generated.extend(diagram_paths)
+            all_errors.extend(diagram_errors)
+            for p in diagram_paths:
+                console.print(f"  [green]Created:[/] {p.relative_to(root)}")
+            for name, err in diagram_errors:
+                console.print(f"  [red]Failed:[/] {name}: {err}")
 
     if all_errors:
         console.print(

@@ -1,0 +1,281 @@
+"""Single-page HTML documentation generator.
+
+Produces a self-contained index.html that combines all docs and diagrams
+into one page with sidebar navigation, light/dark theme toggle,
+collapsible sections, and live-rendered Mermaid diagrams.
+"""
+
+from __future__ import annotations
+
+import html
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+import markdown as md
+from jinja2 import Environment, FileSystemLoader
+
+from codebase_teacher.core.exceptions import LLMError
+from codebase_teacher.generator.diagrams import _clean_mermaid
+from codebase_teacher.generator.docs import (
+    _format_apis,
+    _format_data_flows,
+    _format_infrastructure,
+    _format_module_summaries,
+)
+from codebase_teacher.llm.prompt_registry import PROMPTS
+from codebase_teacher.llm.provider import LLMProvider, Message
+from codebase_teacher.storage.artifact_store import ArtifactStore
+from codebase_teacher.storage.models import AnalysisResult
+
+TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+
+@dataclass
+class Section:
+    """A single section of the HTML page."""
+
+    title: str
+    slug: str
+    html_content: str
+
+
+def _slugify(text: str) -> str:
+    """Convert a title to a URL-safe slug."""
+    slug = text.lower().strip()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "-", slug)
+    return slug.strip("-")
+
+
+def _markdown_to_html(md_content: str) -> str:
+    """Convert markdown to HTML and transform mermaid blocks for live rendering."""
+    html_content = md.markdown(
+        md_content,
+        extensions=["fenced_code", "tables", "toc"],
+    )
+    return _convert_mermaid_blocks(html_content)
+
+
+def _convert_mermaid_blocks(html_content: str) -> str:
+    """Replace fenced mermaid code blocks with <pre class="mermaid"> tags.
+
+    The markdown library renders ```mermaid blocks as:
+      <pre><code class="language-mermaid">...</code></pre>
+    We convert these to:
+      <pre class="mermaid">...</pre>
+    so mermaid.js can pick them up for live rendering.
+    """
+    return re.sub(
+        r'<pre><code class="language-mermaid">(.*?)</code></pre>',
+        lambda m: f'<pre class="mermaid">{html.unescape(m.group(1))}</pre>',
+        html_content,
+        flags=re.DOTALL,
+    )
+
+
+async def _generate_section(
+    provider: LLMProvider,
+    prompt_name: str,
+    prompt_kwargs: dict[str, str],
+    title: str,
+) -> Section:
+    """Call the LLM with a named prompt and return a Section with HTML content."""
+    prompt = PROMPTS[prompt_name]
+    messages = [
+        Message(role="system", content=prompt.format_system()),
+        Message(role="user", content=prompt.format_user(**prompt_kwargs)),
+    ]
+    response = await provider.complete(messages)
+    return Section(
+        title=title,
+        slug=_slugify(title),
+        html_content=_markdown_to_html(response.content),
+    )
+
+
+async def _generate_diagram_section(
+    provider: LLMProvider,
+    analysis: AnalysisResult,
+    diagram_type: str,
+) -> Section:
+    """Generate a diagram section with mermaid content."""
+    if diagram_type == "architecture":
+        messages = [
+            Message(
+                role="system",
+                content=(
+                    "You are generating a Mermaid diagram showing the high-level architecture "
+                    "of a software system. Use a flowchart (graph TD) or C4-style diagram. "
+                    "Keep it readable — no more than 15 nodes. Group related components. "
+                    "Output ONLY the Mermaid diagram code, nothing else."
+                ),
+            ),
+            Message(
+                role="user",
+                content=(
+                    f"Generate a Mermaid architecture diagram for this system.\n\n"
+                    f"Project overview:\n{analysis.project_summary}\n\n"
+                    f"Modules:\n{_format_module_summaries(analysis.module_summaries)}\n\n"
+                    f"Infrastructure:\n{_format_infrastructure(analysis.infrastructure)}\n\n"
+                    f"APIs:\n{_format_apis(analysis.api_endpoints)}"
+                ),
+            ),
+        ]
+        response = await provider.complete(messages)
+        mermaid_code = _clean_mermaid(response.content)
+        html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
+        return Section(
+            title="Architecture Diagram",
+            slug="architecture-diagram",
+            html_content=html_content,
+        )
+    else:
+        # Data flow diagrams — may have pre-generated mermaid
+        if analysis.data_flows:
+            parts: list[str] = []
+            for flow in analysis.data_flows:
+                if flow.mermaid_diagram:
+                    parts.append(
+                        f"<h3>{html.escape(flow.name)}</h3>\n"
+                        f'<pre class="mermaid">{html.escape(flow.mermaid_diagram)}</pre>'
+                    )
+                else:
+                    parts.append(
+                        f"<h3>{html.escape(flow.name)}</h3>\n"
+                        f"<p>Entry: {html.escape(', '.join(flow.entry_points))}</p>\n"
+                        f"<p>Steps: {html.escape(' → '.join(flow.steps))}</p>\n"
+                        f"<p>Output: {html.escape(', '.join(flow.outputs))}</p>"
+                    )
+            return Section(
+                title="Data Flow Diagrams",
+                slug="data-flow-diagrams",
+                html_content="\n".join(parts),
+            )
+
+        # Generate from scratch via LLM
+        messages = [
+            Message(
+                role="system",
+                content=(
+                    "You are generating Mermaid sequence diagrams showing data flows through "
+                    "a software system. Show how requests/data enter, get processed, and exit. "
+                    "Output ONLY Mermaid diagram code."
+                ),
+            ),
+            Message(
+                role="user",
+                content=(
+                    f"Generate data flow diagrams for this system.\n\n"
+                    f"Project: {analysis.project_summary}\n\n"
+                    f"Modules: {_format_module_summaries(analysis.module_summaries)}"
+                ),
+            ),
+        ]
+        response = await provider.complete(messages)
+        mermaid_code = _clean_mermaid(response.content)
+        html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
+        return Section(
+            title="Data Flow Diagrams",
+            slug="data-flow-diagrams",
+            html_content=html_content,
+        )
+
+
+async def generate_html_page(
+    provider: LLMProvider,
+    analysis: AnalysisResult,
+    store: ArtifactStore,
+    project_name: str,
+) -> tuple[Path, list[tuple[str, Exception]]]:
+    """Generate a single-page HTML document with all docs and diagrams.
+
+    Returns (path_to_index_html, errors).
+    """
+    # Prepare prompt kwargs shared across doc sections
+    module_summaries = _format_module_summaries(analysis.module_summaries)
+    data_flows = _format_data_flows(analysis.data_flows)
+    infrastructure = _format_infrastructure(analysis.infrastructure)
+    apis = _format_apis(analysis.api_endpoints)
+
+    # Define the doc sections to generate
+    doc_specs = [
+        (
+            "generate_overview_doc",
+            {
+                "project_summary": analysis.project_summary or "No project summary available.",
+                "module_summaries": module_summaries,
+                "infrastructure": infrastructure,
+                "apis": apis,
+                "data_flows": data_flows,
+            },
+            "Start Here",
+        ),
+        (
+            "generate_architecture_doc",
+            {
+                "project_summary": analysis.project_summary,
+                "module_summaries": module_summaries,
+                "data_flows": data_flows,
+                "infrastructure": infrastructure,
+                "apis": apis,
+            },
+            "Architecture Overview",
+        ),
+        (
+            "generate_api_doc",
+            {"apis": apis, "data_flows": data_flows},
+            "API Reference",
+        ),
+        (
+            "generate_infra_doc",
+            {"infrastructure": infrastructure},
+            "Infrastructure",
+        ),
+    ]
+
+    sections: list[Section] = []
+    errors: list[tuple[str, Exception]] = []
+
+    # Generate doc sections
+    for prompt_name, kwargs, title in doc_specs:
+        # Skip API doc prompt if no endpoints; write a placeholder instead
+        if prompt_name == "generate_api_doc" and not analysis.api_endpoints:
+            sections.append(Section(
+                title=title,
+                slug=_slugify(title),
+                html_content="<p>No API endpoints were detected in this codebase.</p>",
+            ))
+            continue
+        if prompt_name == "generate_infra_doc" and not analysis.infrastructure:
+            sections.append(Section(
+                title=title,
+                slug=_slugify(title),
+                html_content="<p>No infrastructure components were detected in this codebase.</p>",
+            ))
+            continue
+
+        try:
+            section = await _generate_section(provider, prompt_name, kwargs, title)
+            sections.append(section)
+        except LLMError as e:
+            errors.append((title, e))
+
+    # Generate diagram sections
+    for diagram_type in ("architecture", "data-flow"):
+        try:
+            section = await _generate_diagram_section(provider, analysis, diagram_type)
+            sections.append(section)
+        except LLMError as e:
+            errors.append((f"{diagram_type} diagram", e))
+
+    # Render the HTML template
+    env = Environment(
+        loader=FileSystemLoader(str(TEMPLATE_DIR)),
+        autoescape=False,  # We handle escaping ourselves; template receives pre-built HTML
+    )
+    template = env.get_template("doc_page.html.j2")
+    page = template.render(project_name=project_name, sections=sections)
+
+    path = store.write(".", "index.html", page)
+    return path, errors
