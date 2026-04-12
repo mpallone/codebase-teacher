@@ -8,36 +8,64 @@
    a plain-language "What is this?", "Why does it exist?" (with one concrete
    usage example), a short high-level walkthrough, and pointers to the other
    generated docs. See `generator/docs.py::generate_overview_doc`.
-2. [ ] Explore HTML output as an alternative (or complement) to markdown.
-   HTML could be friendlier for reading generated docs:
-   - Collapsible sections — hide detail until you need it, less overwhelming
-   - Live Mermaid diagram rendering — see actual diagrams, not code blocks
-   - Sidebar navigation — jump between docs/sections without scrolling
-   - Styled visual hierarchy — guide the eye to what matters first
-   Markdown still renders well on GitHub and is easy to edit. Could do both:
-   markdown as source of truth, HTML as the polished browsable output.
-3. [ ] Explore rich/dynamic LLM-generated visualizations beyond static markdown.
-   Modern coding agents (Claude, and likely Gemini/Codex/others) can generate
-   dynamic, interactive explanatory content — not just markdown with Mermaid blocks.
-   Examples of what could be possible:
-   - Interactive HTML artifacts (collapsible call trees, clickable architecture
-     diagrams, hoverable tooltips on code entities, zoomable dependency graphs)
-   - Animated walkthroughs of request flows or state transitions
-   - Embedded runnable snippets or sandboxed demos
-   - Custom SVG/Canvas visualizations generated on-the-fly for concepts that
-     don't map cleanly to Mermaid (e.g. memory layouts, concurrency timelines,
-     data pipeline flows)
-   Open questions to investigate:
-   - Which providers support rich output natively (Claude artifacts, Gemini
-     equivalents, Codex, etc.) and how portable is the format across them?
-   - Can we have the generator LLM emit self-contained HTML/JS artifacts as
-     part of the teaching output, or do these need a host environment to render?
-   - Is there a common denominator (e.g. standalone HTML files) that works
-     everywhere, vs. provider-specific formats that we detect and fall back from?
-   - How does this interact with TODO #2 (HTML as browsable output)? These
-     might be the same project or complementary.
-   This is speculative — the point is to capture the idea before it's lost and
-   revisit once we know more about what each CLI provider supports.
+2. [ ] **Interactive HTML output** (replaces old TODOs #2 and #3, merged after research).
+   **Background:** Researched what Claude Code, Codex CLI, Gemini CLI, Windsurf,
+   and Aider can produce. Key findings:
+   - All CLI tools write files to disk. None have built-in HTML rendering.
+   - **Standalone `.html` files are the universal, portable output format.**
+     No need for provider-specific formats or fallback detection.
+   - Claude Code and Gemini 2.5 Pro produce the highest-quality frontend code.
+     Codex CLI is weaker on frontend (~68% vs ~95% benchmark).
+   - Web-UI features (Claude Artifacts, Gemini Canvas, ChatGPT Canvas) are
+     irrelevant here — codebase-teacher runs via CLI and writes to disk.
+   - The current generation architecture (AnalysisResult → generator layer)
+     cleanly separates data from presentation, so adding HTML output does not
+     require touching the analysis pipeline.
+
+   The work is split into three phases. Keep markdown as the default output;
+   HTML is an opt-in `--format html` flag (or similar).
+
+   ### Phase 1: Static HTML shell with rendered diagrams
+   - [ ] 2a. Create an HTML page template (Jinja2) that replaces `doc_page.md.j2`.
+         Single-file or small file set. Inline CSS for styling (no build step).
+         Include: styled typography, a sidebar nav linking all generated docs,
+         collapsible `<details>` sections for long content, a light/dark toggle.
+   - [ ] 2b. Render Mermaid diagrams live by including `mermaid.js` from CDN in a
+         `<script>` tag. Convert existing ``` mermaid ``` code blocks into
+         `<pre class="mermaid">` blocks that mermaid.js picks up automatically.
+   - [ ] 2c. Add a `--format` flag to the CLI (`markdown` default, `html` option).
+         When `html` is selected, use the HTML template instead of the markdown
+         template. Output goes to the same `.teacher-output/` directory.
+   - [ ] 2d. Ensure the HTML output is fully self-contained (opens in any browser
+         with no server, no build step). The only external dependency allowed is
+         the mermaid.js CDN script tag.
+
+   ### Phase 2: LLM-generated interactive elements
+   - [ ] 2e. Update generation prompts to request inline interactive HTML components
+         when `--format html` is active. Examples: collapsible call trees using
+         `<details>`/`<summary>`, tabbed panels for comparing module responsibilities,
+         highlighted code snippets with inline annotations.
+   - [ ] 2f. Define a small set of "component patterns" (collapsible tree, tabbed
+         panel, annotated code block) and include them in the system prompt so the
+         LLM emits consistent markup. Document these patterns in a dev guide.
+   - [ ] 2g. Keep a markdown fallback: if `--format markdown`, the LLM prompt
+         should not emit HTML components. Use the format flag to select which
+         prompt variant to use.
+
+   ### Phase 3: Rich standalone visualizations
+   - [ ] 2h. Generate dedicated interactive visualization files (e.g.
+         `architecture-explorer.html`) using D3.js force-directed graphs or
+         similar. These are separate files linked from the main docs.
+         Feed the AnalysisResult data (modules, dependencies, APIs) as inline
+         JSON so D3.js can render it client-side.
+   - [ ] 2i. Add an animated request-flow walkthrough: a step-by-step visualization
+         that highlights each component in sequence as a request passes through
+         the system. Use the existing DataFlow analysis as input.
+   - [ ] 2j. Gate Phase 3 behind a `--rich-visualizations` flag (off by default).
+         These files are larger and slower to generate. Only attempt with
+         providers known to produce good frontend code (document which ones).
+   - [ ] 2k. Test Phase 3 output across Chrome, Firefox, and Safari to ensure
+         no browser-specific issues with the generated JS.
 
 ## Future CLI Providers
 
