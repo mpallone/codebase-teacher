@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from codebase_teacher.core.exceptions import ContextBudgetExceeded
+from codebase_teacher.core.results import FileFailure, PartialResult
 from codebase_teacher.llm.provider import LLMProvider, LLMResponse, Message
 from codebase_teacher.llm.prompt_registry import PROMPTS
 
@@ -95,16 +96,35 @@ class ContextManager:
 
     async def summarize_files(
         self, files: dict[str, str]
-    ) -> list[FileSummary]:
-        """Summarize multiple files with concurrency control."""
+    ) -> PartialResult[list[FileSummary]]:
+        """Summarize multiple files with concurrency control.
+
+        Returns a ``PartialResult`` so individual file failures don't crash
+        the entire batch.
+        """
         semaphore = asyncio.Semaphore(self.max_concurrent)
+        paths = list(files.keys())
 
         async def _summarize(path: str, code: str) -> FileSummary:
             async with semaphore:
                 return await self.summarize_file(path, code)
 
         tasks = [_summarize(path, code) for path, code in files.items()]
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        summaries: list[FileSummary] = []
+        failures: list[FileFailure] = []
+        for path, result in zip(paths, results):
+            if isinstance(result, BaseException):
+                failures.append(FileFailure(
+                    file_path=path,
+                    error_type=type(result).__name__,
+                    message=str(result),
+                ))
+            else:
+                summaries.append(result)
+
+        return PartialResult(value=summaries, failures=failures)
 
     async def summarize_module(
         self, module_path: str, file_summaries: list[FileSummary]

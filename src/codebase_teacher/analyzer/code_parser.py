@@ -12,10 +12,11 @@ from pathlib import Path
 
 from rich.console import Console
 
-from codebase_teacher.analyzer.c_parser import parse_c_file
-from codebase_teacher.analyzer.java_parser import parse_java_file
-from codebase_teacher.analyzer.scala_parser import parse_scala_file
-from codebase_teacher.analyzer.terraform_parser import parse_terraform_file
+from codebase_teacher.analyzer.c_parser import _C_AVAILABLE, parse_c_file
+from codebase_teacher.analyzer.java_parser import _JAVA_AVAILABLE, parse_java_file
+from codebase_teacher.analyzer.scala_parser import _SCALA_AVAILABLE, parse_scala_file
+from codebase_teacher.analyzer.terraform_parser import _HCL_AVAILABLE, parse_terraform_file
+from codebase_teacher.core.results import FileFailure, PartialResult
 from codebase_teacher.scanner.file_classifier import LANGUAGE_MAP
 from codebase_teacher.storage.models import (
     ClassInfo,
@@ -28,11 +29,8 @@ from codebase_teacher.storage.models import (
 
 def parse_python_file(file_path: Path, root: Path) -> CodebaseGraph:
     """Parse a Python file and extract structural information."""
-    try:
-        source = file_path.read_text(encoding="utf-8", errors="ignore")
-        tree = ast.parse(source, filename=str(file_path))
-    except (SyntaxError, OSError):
-        return CodebaseGraph()
+    source = file_path.read_text(encoding="utf-8", errors="ignore")
+    tree = ast.parse(source, filename=str(file_path))
 
     rel_path = str(file_path.relative_to(root))
     functions: list[FunctionInfo] = []
@@ -134,38 +132,63 @@ def parse_codebase(
     root: Path,
     source_files: list[str],
     console: Console | None = None,
-) -> CodebaseGraph:
+) -> PartialResult[CodebaseGraph]:
     """Parse Python, Java, C, Scala, and Terraform/HCL source files into a single CodebaseGraph.
 
-    Source files whose extension is recognized as a language (present in
-    ``LANGUAGE_MAP``) but which have no AST parser wired up are skipped.
-    A yellow warning is emitted via ``console`` (or a default stderr
-    ``Console`` if none is provided), aggregated per unique extension so
-    the user sees one line per unsupported language rather than one line
-    per file.
+    Returns a ``PartialResult`` so callers can see which files failed to parse
+    and report them to the user.  Files whose extension has no AST parser
+    configured are tracked in a per-extension skip counter and warned about.
+    Files whose tree-sitter grammar is not installed are also warned about.
     """
     all_functions: list[FunctionInfo] = []
     all_classes: list[ClassInfo] = []
     all_imports: list[ImportInfo] = []
     all_terraform_resources: list[TerraformResource] = []
     skipped: Counter[str] = Counter()
+    unavailable: Counter[str] = Counter()
+    failures: list[FileFailure] = []
+
+    # Map extensions to their availability flags
+    _parser_available = {
+        ".java": _JAVA_AVAILABLE,
+        ".c": _C_AVAILABLE,
+        ".h": _C_AVAILABLE,
+        ".scala": _SCALA_AVAILABLE,
+        ".tf": _HCL_AVAILABLE,
+        ".hcl": _HCL_AVAILABLE,
+    }
 
     for rel_path in source_files:
         file_path = root / rel_path
         suffix = file_path.suffix.lower()
 
         if suffix == ".py":
-            graph = parse_python_file(file_path, root)
+            parser_func = parse_python_file
         elif suffix == ".java":
-            graph = parse_java_file(file_path, root)
+            parser_func = parse_java_file
         elif suffix in (".c", ".h"):
-            graph = parse_c_file(file_path, root)
+            parser_func = parse_c_file
         elif suffix == ".scala":
-            graph = parse_scala_file(file_path, root)
+            parser_func = parse_scala_file
         elif suffix in (".tf", ".hcl"):
-            graph = parse_terraform_file(file_path, root)
+            parser_func = parse_terraform_file
         else:
             skipped[suffix] += 1
+            continue
+
+        # Check if tree-sitter grammar is unavailable for this extension
+        if suffix in _parser_available and not _parser_available[suffix]:
+            unavailable[suffix] += 1
+            continue
+
+        try:
+            graph = parser_func(file_path, root)
+        except Exception as e:
+            failures.append(FileFailure(
+                file_path=rel_path,
+                error_type=type(e).__name__,
+                message=str(e),
+            ))
             continue
 
         all_functions.extend(graph.functions)
@@ -173,8 +196,9 @@ def parse_codebase(
         all_imports.extend(graph.imports)
         all_terraform_resources.extend(graph.terraform_resources)
 
+    warn_console = console or Console(stderr=True)
+
     if skipped:
-        warn_console = console or Console(stderr=True)
         for suffix, count in sorted(skipped.items()):
             language = LANGUAGE_MAP.get(suffix, "unknown")
             warn_console.print(
@@ -183,9 +207,25 @@ def parse_codebase(
                 f"— no AST parser configured."
             )
 
-    return CodebaseGraph(
+    if unavailable:
+        for suffix, count in sorted(unavailable.items()):
+            language = LANGUAGE_MAP.get(suffix, "unknown")
+            warn_console.print(
+                f"[yellow]Warning:[/] skipped {count} {language} file(s) "
+                f"— tree-sitter grammar not installed for '{suffix}'."
+            )
+
+    if failures:
+        warn_console.print(
+            f"[yellow]Warning:[/] {len(failures)} file(s) failed to parse:"
+        )
+        for f in failures:
+            warn_console.print(f"  - {f.file_path}: {f.error_type}: {f.message}")
+
+    graph = CodebaseGraph(
         functions=all_functions,
         classes=all_classes,
         imports=all_imports,
         terraform_resources=all_terraform_resources,
     )
+    return PartialResult(value=graph, failures=failures)

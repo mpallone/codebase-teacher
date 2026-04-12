@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 
 import click
+from pydantic import ValidationError
 from rich.console import Console
 
 from codebase_teacher.core.config import Settings
+from codebase_teacher.core.exceptions import AnalysisError
 from codebase_teacher.generator.diagrams import generate_all_diagrams
 from codebase_teacher.generator.docs import generate_all_docs
 from codebase_teacher.llm.factory import create_provider
@@ -45,7 +48,13 @@ async def _generate_async(root: Path, settings: Settings, gen_type: str) -> None
     project_id = db.get_or_create_project(str(root), root.name)
 
     # Load cached analysis
-    analysis = _load_analysis(db, project_id)
+    try:
+        analysis = _load_analysis(db, project_id)
+    except AnalysisError as e:
+        console.print(f"[red bold]{e}[/]")
+        db.close()
+        sys.exit(1)
+
     if analysis is None:
         console.print("[red]No analysis data found. Run [bold]teach analyze[/] first.[/]")
         db.close()
@@ -57,29 +66,49 @@ async def _generate_async(root: Path, settings: Settings, gen_type: str) -> None
     store = ArtifactStore(output_dir, db, project_id)
 
     generated: list[Path] = []
+    all_errors: list[tuple[str, Exception]] = []
 
     if gen_type in ("all", "docs"):
         console.print("\n[bold cyan]Generating documentation...[/]")
-        doc_paths = await generate_all_docs(provider, analysis, store)
+        doc_paths, doc_errors = await generate_all_docs(provider, analysis, store)
         generated.extend(doc_paths)
+        all_errors.extend(doc_errors)
         for p in doc_paths:
             console.print(f"  [green]Created:[/] {p.relative_to(root)}")
+        for name, err in doc_errors:
+            console.print(f"  [red]Failed:[/] {name}: {err}")
 
     if gen_type in ("all", "diagrams"):
         console.print("\n[bold cyan]Generating diagrams...[/]")
-        diagram_paths = await generate_all_diagrams(provider, analysis, store)
+        diagram_paths, diagram_errors = await generate_all_diagrams(provider, analysis, store)
         generated.extend(diagram_paths)
+        all_errors.extend(diagram_errors)
         for p in diagram_paths:
             console.print(f"  [green]Created:[/] {p.relative_to(root)}")
+        for name, err in diagram_errors:
+            console.print(f"  [red]Failed:[/] {name}: {err}")
 
-    console.print(f"\n[bold green]Generated {len(generated)} files![/]")
+    if all_errors:
+        console.print(
+            f"\n[red bold]Generated {len(generated)} file(s), "
+            f"{len(all_errors)} failed.[/]"
+        )
+    else:
+        console.print(f"\n[bold green]Generated {len(generated)} files![/]")
+
     console.print(f"Output directory: {output_dir}")
     db.close()
 
+    if all_errors:
+        sys.exit(1)
+
 
 def _load_analysis(db: Database, project_id: int) -> AnalysisResult | None:
-    """Load the most recent analysis result from cache."""
-    # Get all cached analyses and find the full_analysis
+    """Load the most recent analysis result from cache.
+
+    Returns None if no analysis has been run. Raises AnalysisError
+    if the cached data exists but is corrupt.
+    """
     rows = db.conn.execute(
         "SELECT result_json FROM analysis_cache "
         "WHERE project_id = ? AND analyzer_name = 'full_analysis' "
@@ -93,5 +122,8 @@ def _load_analysis(db: Database, project_id: int) -> AnalysisResult | None:
     try:
         data = json.loads(rows["result_json"])
         return AnalysisResult.model_validate(data)
-    except Exception:
-        return None
+    except (json.JSONDecodeError, ValidationError) as e:
+        raise AnalysisError(
+            f"Cached analysis is corrupt and cannot be loaded: {e}\n"
+            f"Run 'teach analyze' again to regenerate."
+        ) from e

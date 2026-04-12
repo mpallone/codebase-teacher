@@ -10,6 +10,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from codebase_teacher.core.exceptions import LLMError
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
 from codebase_teacher.storage.artifact_store import ArtifactStore
@@ -182,18 +183,28 @@ async def generate_all_docs(
     provider: LLMProvider,
     analysis: AnalysisResult,
     store: ArtifactStore,
-) -> list[Path]:
+) -> tuple[list[Path], list[tuple[str, Exception]]]:
     """Generate all documentation files.
 
-    Order matters for the returned list: the overview doc comes first so CLI
-    output presents it as the intended starting point for new readers.
+    Returns (successful_paths, errors) so a single document failure
+    does not prevent the remaining documents from being generated.
+    Order matters: the overview doc comes first so CLI output presents
+    it as the intended starting point for new readers.
     """
+    generators = [
+        ("overview.md", generate_overview_doc),
+        ("architecture.md", generate_architecture_doc),
+        ("api-reference.md", generate_api_doc),
+        ("infrastructure.md", generate_infra_doc),
+    ]
     paths: list[Path] = []
-    paths.append(await generate_overview_doc(provider, analysis, store))
-    paths.append(await generate_architecture_doc(provider, analysis, store))
-    paths.append(await generate_api_doc(provider, analysis, store))
-    paths.append(await generate_infra_doc(provider, analysis, store))
-    return paths
+    errors: list[tuple[str, Exception]] = []
+    for name, gen_func in generators:
+        try:
+            paths.append(await gen_func(provider, analysis, store))
+        except LLMError as e:
+            errors.append((name, e))
+    return paths, errors
 
 
 # --- Formatting helpers ---

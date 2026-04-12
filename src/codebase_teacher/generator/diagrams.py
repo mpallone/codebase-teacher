@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from codebase_teacher.core.exceptions import LLMError
 from codebase_teacher.llm.provider import LLMProvider, Message
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
@@ -99,12 +100,24 @@ async def generate_all_diagrams(
     provider: LLMProvider,
     analysis: AnalysisResult,
     store: ArtifactStore,
-) -> list[Path]:
-    """Generate all diagram files."""
+) -> tuple[list[Path], list[tuple[str, Exception]]]:
+    """Generate all diagram files.
+
+    Returns (successful_paths, errors) so a single diagram failure
+    does not prevent the remaining diagrams from being generated.
+    """
+    generators = [
+        ("architecture diagram", generate_architecture_diagram),
+        ("data flow diagram", generate_data_flow_diagram),
+    ]
     paths: list[Path] = []
-    paths.append(await generate_architecture_diagram(provider, analysis, store))
-    paths.append(await generate_data_flow_diagram(provider, analysis, store))
-    return paths
+    errors: list[tuple[str, Exception]] = []
+    for name, gen_func in generators:
+        try:
+            paths.append(await gen_func(provider, analysis, store))
+        except LLMError as e:
+            errors.append((name, e))
+    return paths, errors
 
 
 def _clean_mermaid(text: str) -> str:

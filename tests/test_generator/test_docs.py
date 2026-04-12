@@ -125,7 +125,9 @@ async def test_generate_all_docs_includes_overview_first(mock_provider, tmp_path
     try:
         analysis = _make_analysis()
 
-        paths = await generate_all_docs(mock_provider, analysis, store)
+        paths, errors = await generate_all_docs(mock_provider, analysis, store)
+
+        assert not errors
 
         names = [p.name for p in paths]
         # Overview must be first so CLI output presents it as the starting point

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
-from codebase_teacher.llm.structured import parse_model_list
+from codebase_teacher.llm.structured import complete_and_parse_list
 from codebase_teacher.storage.models import InfraComponent
 
 
@@ -34,11 +34,7 @@ async def detect_infrastructure(
         Message(role="user", content=prompt.format_user(code_chunks=code_chunks)),
     ]
 
-    response = await provider.complete(messages)
-    try:
-        return parse_model_list(response.content, InfraComponent)
-    except Exception:
-        return []
+    return await complete_and_parse_list(provider, messages, InfraComponent)
 
 
 def _build_code_chunks(

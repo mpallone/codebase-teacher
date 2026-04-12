@@ -88,7 +88,11 @@ def classify_file(path: Path, root: Path) -> FileInfo:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
         tokens = estimate_tokens(content)
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError) as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Could not read %s for token estimation: %s", path, e
+        )
         tokens = 0
 
     return FileInfo(

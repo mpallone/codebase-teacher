@@ -78,11 +78,15 @@ def _parse_pyproject_toml(path: Path) -> list[DependencyInfo]:
 def _parse_package_json(path: Path) -> list[DependencyInfo]:
     """Parse dependencies from package.json."""
     import json
+    import logging
 
     deps: list[DependencyInfo] = []
     try:
         data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as e:
+        logging.getLogger(__name__).warning(
+            "Failed to parse %s: %s", path, e
+        )
         return deps
 
     for section in ("dependencies", "devDependencies"):

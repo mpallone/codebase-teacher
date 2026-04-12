@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
-from codebase_teacher.llm.structured import parse_model_list
+from codebase_teacher.llm.structured import complete_and_parse_list
 from codebase_teacher.storage.models import DataFlow
 
 
@@ -41,11 +41,7 @@ async def trace_data_flows(
         Message(role="user", content=prompt.format_user(summaries=summaries)),
     ]
 
-    response = await provider.complete(messages)
-    try:
-        return parse_model_list(response.content, DataFlow)
-    except Exception:
-        return []
+    return await complete_and_parse_list(provider, messages, DataFlow)
 
 
 def _build_summaries_text(
