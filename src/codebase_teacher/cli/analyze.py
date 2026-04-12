@@ -218,7 +218,7 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
                 continue
             info = classify_file(path, root)
             if info.category in ("infra", "config") and info.path not in infra_files:
-                content = _read_file(root, info.path)
+                content = _read_file_safe(root, info.path)
                 if content:
                     infra_files[info.path] = content
         # Add a subset of source files too
