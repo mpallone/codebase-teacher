@@ -6,7 +6,7 @@ import json
 
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
-from codebase_teacher.llm.structured import parse_model_list
+from codebase_teacher.llm.structured import complete_and_parse_list
 from codebase_teacher.storage.models import APIEndpoint
 
 
@@ -35,12 +35,7 @@ async def detect_apis(
         Message(role="user", content=prompt.format_user(code_chunks=code_chunks)),
     ]
 
-    response = await provider.complete(messages)
-    try:
-        return parse_model_list(response.content, APIEndpoint)
-    except Exception:
-        # If parsing fails, return empty list rather than crashing
-        return []
+    return await complete_and_parse_list(provider, messages, APIEndpoint)
 
 
 def _build_code_chunks(file_contents: dict[str, str]) -> str:

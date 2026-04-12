@@ -210,11 +210,10 @@ def test_graceful_on_invalid_java(tmp_path):
     assert isinstance(graph.classes, list)
 
 
-def test_graceful_when_file_missing(tmp_path):
+def test_raises_when_file_missing(tmp_path):
     missing = tmp_path / "NonExistent.java"
-    graph = parse_java_file(missing, tmp_path)
-    assert graph.classes == []
-    assert graph.imports == []
+    with pytest.raises(FileNotFoundError):
+        parse_java_file(missing, tmp_path)
 
 
 def test_terraform_resources_empty_for_java(tmp_path):

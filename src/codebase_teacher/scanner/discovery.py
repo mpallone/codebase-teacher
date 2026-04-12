@@ -80,6 +80,7 @@ def _add_to_tree(tree: Tree, path: Path, max_depth: int, current_depth: int) -> 
     try:
         entries = sorted(path.iterdir())
     except PermissionError:
+        tree.add("[red](permission denied)[/]")
         return
 
     dirs = [e for e in entries if e.is_dir() and not _should_skip(e.name)]

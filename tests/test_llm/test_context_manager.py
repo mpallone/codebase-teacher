@@ -74,8 +74,9 @@ async def test_summarize_files_concurrent(mock_provider):
         "b.py": "def b(): pass",
         "c.py": "def c(): pass",
     }
-    summaries = await cm.summarize_files(files)
-    assert len(summaries) == 3
+    result = await cm.summarize_files(files)
+    assert len(result.value) == 3
+    assert not result.has_failures
 
 
 def test_build_context(mock_provider):

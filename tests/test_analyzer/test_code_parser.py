@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from rich.console import Console
 
 from codebase_teacher.analyzer.code_parser import parse_python_file, parse_codebase
@@ -42,7 +43,8 @@ def test_parse_python_file_with_class(sample_project):
 def test_parse_codebase(sample_project):
     """Test parsing multiple files into a single graph."""
     source_files = ["app.py", "models.py", "tasks.py"]
-    graph = parse_codebase(sample_project, source_files)
+    result = parse_codebase(sample_project, source_files)
+    graph = result.value
 
     # Should have functions from all files
     func_names = [f.name for f in graph.functions]
@@ -52,6 +54,9 @@ def test_parse_codebase(sample_project):
     # Should have classes
     class_names = [c.name for c in graph.classes]
     assert "User" in class_names
+
+    # No failures for valid files
+    assert not result.has_failures
 
 
 def test_parse_async_function(tmp_path):
@@ -69,14 +74,27 @@ def test_parse_async_function(tmp_path):
     assert graph.functions[0].name == "fetch_data"
 
 
-def test_parse_invalid_python(tmp_path):
-    """Test that invalid Python files don't crash the parser."""
+def test_parse_invalid_python_raises(tmp_path):
+    """Test that invalid Python files raise SyntaxError."""
     bad_file = tmp_path / "bad.py"
     bad_file.write_text("def this is not valid python {{{")
-    graph = parse_python_file(bad_file, tmp_path)
-    # Should return empty graph, not raise
-    assert graph.functions == []
-    assert graph.classes == []
+    with pytest.raises(SyntaxError):
+        parse_python_file(bad_file, tmp_path)
+
+
+def test_parse_codebase_collects_invalid_python(tmp_path):
+    """parse_codebase catches per-file errors and reports them as failures."""
+    good_file = tmp_path / "good.py"
+    good_file.write_text("def foo(): pass\n")
+    bad_file = tmp_path / "bad.py"
+    bad_file.write_text("def this is not valid python {{{")
+
+    result = parse_codebase(tmp_path, ["good.py", "bad.py"])
+    # Good file is parsed
+    assert any(f.name == "foo" for f in result.value.functions)
+    # Bad file appears in failures
+    assert result.has_failures
+    assert any(f.file_path == "bad.py" for f in result.failures)
 
 
 def test_parse_codebase_warns_on_unsupported_language(tmp_path, capsys):
@@ -86,7 +104,7 @@ def test_parse_codebase_warns_on_unsupported_language(tmp_path, capsys):
     (tmp_path / "c.kt").write_text("fun main() {}")
 
     console = Console(force_terminal=False, width=200)
-    graph = parse_codebase(
+    result = parse_codebase(
         tmp_path, ["a.rb", "b.rb", "c.kt"], console=console
     )
 
@@ -96,7 +114,7 @@ def test_parse_codebase_warns_on_unsupported_language(tmp_path, capsys):
     assert "skipped 1 source file(s) with extension '.kt'" in captured.out
     assert "language 'ruby'" in captured.out
     assert "language 'kotlin'" in captured.out
-    assert graph.classes == []
+    assert result.value.classes == []
 
 
 def test_parse_codebase_no_warning_when_all_supported(tmp_path, capsys):
@@ -104,18 +122,19 @@ def test_parse_codebase_no_warning_when_all_supported(tmp_path, capsys):
     (tmp_path / "a.py").write_text("def foo(): pass\n")
 
     console = Console(force_terminal=False, width=200)
-    parse_codebase(tmp_path, ["a.py"], console=console)
+    result = parse_codebase(tmp_path, ["a.py"], console=console)
 
     captured = capsys.readouterr()
     assert "skipped" not in captured.out
     assert "Warning" not in captured.out
+    assert not result.has_failures
 
 
 def test_parse_codebase_skip_warning_without_console(tmp_path, capsys):
     """When no console is passed, warnings still appear on stderr."""
     (tmp_path / "a.go").write_text("package main")
 
-    parse_codebase(tmp_path, ["a.go"])
+    result = parse_codebase(tmp_path, ["a.go"])
 
     captured = capsys.readouterr()
     # Default console uses stderr=True
