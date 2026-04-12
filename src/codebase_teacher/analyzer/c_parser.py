@@ -39,12 +39,9 @@ def parse_c_file(file_path: Path, root: Path) -> CodebaseGraph:
     if not _C_AVAILABLE:
         return CodebaseGraph()
 
-    try:
-        source = file_path.read_bytes()
-        parser = _TSParser(_C_LANGUAGE)
-        tree = parser.parse(source)
-    except Exception:
-        return CodebaseGraph()
+    source = file_path.read_bytes()
+    parser = _TSParser(_C_LANGUAGE)
+    tree = parser.parse(source)
 
     rel_path = str(file_path.relative_to(root))
     functions: list[FunctionInfo] = []

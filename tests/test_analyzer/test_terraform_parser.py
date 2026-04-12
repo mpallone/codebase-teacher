@@ -249,10 +249,10 @@ def test_file_path_in_results(tmp_path):
     assert all(r.file_path == "main.tf" for r in graph.terraform_resources)
 
 
-def test_graceful_on_missing_file(tmp_path):
+def test_raises_on_missing_file(tmp_path):
     missing = tmp_path / "nonexistent.tf"
-    graph = parse_terraform_file(missing, tmp_path)
-    assert graph.terraform_resources == []
+    with pytest.raises(FileNotFoundError):
+        parse_terraform_file(missing, tmp_path)
 
 
 def test_no_functions_or_classes_in_terraform(tmp_path):

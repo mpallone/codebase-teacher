@@ -33,5 +33,13 @@ class CLIProviderError(LLMError):
     """Error running a CLI-based LLM provider (tool not found, timeout, etc.)."""
 
 
+class FileProcessingError(CodebaseTeacherError):
+    """A single file could not be parsed or read."""
+
+    def __init__(self, file_path: str, message: str) -> None:
+        self.file_path = file_path
+        super().__init__(f"{file_path}: {message}")
+
+
 class StorageError(CodebaseTeacherError):
     """Error with database or file storage."""

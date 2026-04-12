@@ -47,12 +47,9 @@ def parse_scala_file(file_path: Path, root: Path) -> CodebaseGraph:
     if not _SCALA_AVAILABLE:
         return CodebaseGraph()
 
-    try:
-        source = file_path.read_bytes()
-        parser = _TSParser(_SCALA_LANGUAGE)
-        tree = parser.parse(source)
-    except Exception:
-        return CodebaseGraph()
+    source = file_path.read_bytes()
+    parser = _TSParser(_SCALA_LANGUAGE)
+    tree = parser.parse(source)
 
     rel_path = str(file_path.relative_to(root))
     classes: list[ClassInfo] = []

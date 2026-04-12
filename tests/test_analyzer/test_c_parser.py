@@ -210,12 +210,10 @@ def test_graceful_on_invalid_c(tmp_path):
     assert isinstance(graph.functions, list)
 
 
-def test_graceful_when_file_missing(tmp_path):
+def test_raises_when_file_missing(tmp_path):
     missing = tmp_path / "nonexistent.c"
-    graph = parse_c_file(missing, tmp_path)
-    assert graph.functions == []
-    assert graph.classes == []
-    assert graph.imports == []
+    with pytest.raises(FileNotFoundError):
+        parse_c_file(missing, tmp_path)
 
 
 def test_file_path_in_results(tmp_path):

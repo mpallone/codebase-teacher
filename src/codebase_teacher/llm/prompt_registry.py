@@ -123,6 +123,54 @@ PROMPTS: dict[str, PromptTemplate] = {
             "{summaries}"
         ),
     ),
+    "generate_overview_doc": PromptTemplate(
+        system=(
+            "You are writing the 'Start Here' onboarding page for a new developer joining "
+            "this codebase. Your job is to answer three questions in plain language, fast: "
+            "what does this codebase do, why is it valuable, and how is it laid out at a "
+            "high level. Think 'trail map', not 'street-by-street atlas'. Avoid jargon. "
+            "Do not dump every file — pick the major pieces and show how they connect. "
+            "Assume the reader is a smart senior engineer who has never seen this project. "
+            "Be warm, concrete, and skimmable. Prefer short paragraphs, bullet lists, and "
+            "one concrete usage example over exhaustive prose."
+        ),
+        user=(
+            "Write a friendly 'Start Here' overview document for this codebase. This will "
+            "be the first thing a new developer reads, before they dive into the detailed "
+            "architecture and API docs.\n\n"
+            "Project summary:\n{project_summary}\n\n"
+            "Module summaries:\n{module_summaries}\n\n"
+            "Infrastructure:\n{infrastructure}\n\n"
+            "APIs:\n{apis}\n\n"
+            "Data flows:\n{data_flows}\n\n"
+            "Structure the document with these sections (use these exact H2 headings):\n\n"
+            "## What is this?\n"
+            "One or two plain-language paragraphs describing what this codebase does. "
+            "Focus on purpose, not implementation. No framework names unless essential.\n\n"
+            "## Why does it exist?\n"
+            "Explain the business value: who uses it, what problem it solves, and why "
+            "someone would reach for it. Include ONE concrete usage example — a short, "
+            "realistic scenario showing the codebase in action. A hypothetical example is "
+            "fine if the real usage isn't obvious from the summaries. Make the example "
+            "specific enough to be memorable (name the user, the problem, the outcome).\n\n"
+            "## High-level walkthrough\n"
+            "A skimmable tour of the major pieces and how they connect. Cover only the "
+            "top 4-8 components — enough that the reader can orient themselves in a few "
+            "minutes. For each piece, give a one-line description of its job. Then add a "
+            "short paragraph (or a simple Mermaid flowchart) describing how a typical "
+            "request or piece of data moves through the system end-to-end.\n\n"
+            "## Where to go next\n"
+            "Point readers to the other generated docs:\n"
+            "- `architecture.md` — deeper system design and component details\n"
+            "- `api-reference.md` — full API endpoint reference\n"
+            "- `infrastructure.md` — databases, queues, and external services\n"
+            "- `diagrams/` — architecture and data flow diagrams\n\n"
+            "Only reference the docs that are actually relevant (e.g. skip `api-reference.md` "
+            "if no APIs were detected).\n\n"
+            "Keep the whole document under ~600 words. Format as Markdown. Do NOT include "
+            "a top-level H1 heading — that will be added by the template."
+        ),
+    ),
     "generate_architecture_doc": PromptTemplate(
         system=(
             "You are writing architecture documentation for a senior engineer who is new to "

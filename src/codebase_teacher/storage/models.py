@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import json
+
+from pydantic import BaseModel, Field, field_validator
 
 
 # --- Scanner models ---
@@ -110,6 +112,13 @@ class InfraComponent(BaseModel):
     explanation: str = ""
     usage: str = ""
     config: str = ""
+
+    @field_validator("config", mode="before")
+    @classmethod
+    def _coerce_config_to_str(cls, v: object) -> str:
+        if isinstance(v, str):
+            return v
+        return json.dumps(v)
 
 
 class DataFlow(BaseModel):
