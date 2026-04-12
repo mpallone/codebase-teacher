@@ -53,13 +53,15 @@
 
 8. [x] Add httpbin (`postmanlabs/httpbin`) as first test repo (git submodule in `tests/repos/`)
 9. [x] Run tool against httpbin and evaluate output quality
-10. [ ] Bug: Infrastructure detection returned 0 results for httpbin despite Dockerfile existing.
+10. [x] Bug: Infrastructure detection returned 0 results for httpbin despite Dockerfile existing.
     The scan step correctly detected Docker (`Infrastructure detected: Docker (containerization)`)
     but the analyze step's LLM infrastructure detection produced 0 `InfraComponent` objects, so
-    `infrastructure.md` is empty. Likely cause: scan-detected infra hints aren't passed through
-    to the LLM infra detection prompt, or the prompt is biased toward databases/queues and ignores
-    Dockerfiles. Investigate `analyzer/infra_detector.py` and the `detect_infrastructure()` call
-    in `cli/analyze.py`.
+    `infrastructure.md` was empty. Fixed by (a) strengthening the `detect_infrastructure` prompt
+    to cover containers, orchestration, and IaC and to treat scanner hints as authoritative,
+    (b) adding a minimal `_fallback_from_hints()` in `analyzer/infra_detector.py` that preserves
+    scanner hints when the LLM returns nothing, and (c) adding a filesystem fallback in
+    `cli/analyze.py` that scans root-level files through the existing file classifier so
+    Dockerfiles always reach the LLM even if `teach scan` wasn't run.
 11. [ ] Add fastapi-realworld-example-app as tier 2 test repo
 12. [ ] Add spring-petclinic (Java) as tier 3 test repo
 13. [ ] Add a small Terraform repo to exercise HCL parsing
