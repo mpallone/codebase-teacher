@@ -2,18 +2,12 @@
 
 ## Generated Output Improvements
 
-1. [ ] Add a friendly overview document to generated output (e.g. a README.md or "Start Here" page).
-   The current docs (architecture.md, api-reference.md) are thorough but can feel overwhelming.
-   The overview should answer upfront:
-   - **What does this codebase do?** Plain-language purpose, not implementation details.
-   - **Why is it valuable?** Business value, who uses it, what problem it solves.
-     Include concrete examples (hypothetical is fine). E.g. for httpbin: "An HTTP client
-     library author uses httpbin to verify their library correctly handles gzip responses,
-     digest auth, and redirect chains — without standing up a custom test server."
-   - **High-level codebase walkthrough.** A short, skimmable tour of the major pieces
-     and how they connect. Not every file — just enough that a dev can orient themselves
-     in a few minutes. Think "trail map", not "street-by-street atlas."
-   This should be the first thing a new developer reads before diving into architecture.md.
+1. [x] Add a friendly overview document to generated output (e.g. a README.md or "Start Here" page).
+   Implemented as `.teacher-output/docs/overview.md` (generated first by
+   `generate_all_docs`). Uses a dedicated prompt that asks the LLM to produce
+   a plain-language "What is this?", "Why does it exist?" (with one concrete
+   usage example), a short high-level walkthrough, and pointers to the other
+   generated docs. See `generator/docs.py::generate_overview_doc`.
 2. [ ] Explore HTML output as an alternative (or complement) to markdown.
    HTML could be friendlier for reading generated docs:
    - Collapsible sections — hide detail until you need it, less overwhelming
