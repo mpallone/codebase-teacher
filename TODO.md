@@ -23,13 +23,18 @@
      require touching the analysis pipeline.
 
    The work is split into three phases. Keep markdown as the default output;
-   HTML is an opt-in `--format html` flag (or similar).
+   HTML is an opt-in `--format html` flag (or similar). **All HTML output must
+   be mobile-friendly** — responsive layout, readable on small screens, touch
+   targets sized appropriately. This applies to every phase.
 
    ### Phase 1: Static HTML shell with rendered diagrams
    - [ ] 2a. Create an HTML page template (Jinja2) that replaces `doc_page.md.j2`.
          Single-file or small file set. Inline CSS for styling (no build step).
          Include: styled typography, a sidebar nav linking all generated docs,
          collapsible `<details>` sections for long content, a light/dark toggle.
+         Use responsive CSS (media queries, fluid widths) so the layout works
+         on mobile — sidebar collapses to a hamburger menu or top nav on small
+         screens.
    - [ ] 2b. Render Mermaid diagrams live by including `mermaid.js` from CDN in a
          `<script>` tag. Convert existing ``` mermaid ``` code blocks into
          `<pre class="mermaid">` blocks that mermaid.js picks up automatically.
@@ -64,8 +69,9 @@
    - [ ] 2j. Gate Phase 3 behind a `--rich-visualizations` flag (off by default).
          These files are larger and slower to generate. Only attempt with
          providers known to produce good frontend code (document which ones).
-   - [ ] 2k. Test Phase 3 output across Chrome, Firefox, and Safari to ensure
-         no browser-specific issues with the generated JS.
+   - [ ] 2k. Test Phase 3 output across Chrome, Firefox, and Safari (desktop
+         and mobile) to ensure no browser-specific or responsive layout issues
+         with the generated JS and CSS.
 
 ## Future CLI Providers
 
