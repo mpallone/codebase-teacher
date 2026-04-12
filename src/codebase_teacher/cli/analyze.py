@@ -60,12 +60,6 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
     # Get source files from classification
     source_files_data = db.get_files_by_category(project_id, "source")
     source_files = [f["file_path"] for f in source_files_data]
-    # Infra files with a detected language (e.g. .tf) also need AST parsing
-    # to extract resource definitions, even though they're categorised as infra.
-    source_set = set(source_files)
-    for f in db.get_files_by_category(project_id, "infra"):
-        if f.get("language") and f["file_path"] not in source_set:
-            source_files.append(f["file_path"])
     if not source_files:
         # Fall back: find Python files in relevant folders
         for folder_rel in relevant_folders:

@@ -55,7 +55,7 @@ INFRA_PATTERNS = {
     ".github", ".circleci", ".gitlab-ci.yml",
 }
 
-INFRA_EXTENSIONS = {".tf", ".hcl", ".tfvars"}
+INFRA_EXTENSIONS = {".tfvars"}
 
 # Build file patterns
 BUILD_PATTERNS = {
