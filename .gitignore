@@ -6,6 +6,7 @@ build/
 .env
 .teacher/
 .teacher-output/
+.teacher-staging/
 *.db
 .pytest_cache/
 .coverage
