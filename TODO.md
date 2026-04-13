@@ -60,19 +60,7 @@
          Confirmed: all CSS is inline, all content embedded, only external
          resource is the pinned mermaid.js CDN script.
 
-   ### Phase 2: LLM-generated interactive elements
-   - [ ] 2e. Update generation prompts to request inline interactive HTML components
-         when `--format html` is active. Examples: collapsible call trees using
-         `<details>`/`<summary>`, tabbed panels for comparing module responsibilities,
-         highlighted code snippets with inline annotations.
-   - [ ] 2f. Define a small set of "component patterns" (collapsible tree, tabbed
-         panel, annotated code block) and include them in the system prompt so the
-         LLM emits consistent markup. Document these patterns in a dev guide.
-   - [ ] 2g. Keep a markdown fallback: if `--format markdown`, the LLM prompt
-         should not emit HTML components. Use the format flag to select which
-         prompt variant to use.
-
-   ### Phase 3: Rich standalone visualizations
+   ### Phase 2: Rich standalone visualizations
    - [ ] 2h. Generate dedicated interactive visualization files (e.g.
          `architecture-explorer.html`) using D3.js force-directed graphs or
          similar. These are separate files linked from the main docs.
@@ -81,10 +69,10 @@
    - [ ] 2i. Add an animated request-flow walkthrough: a step-by-step visualization
          that highlights each component in sequence as a request passes through
          the system. Use the existing DataFlow analysis as input.
-   - [ ] 2j. Gate Phase 3 behind a `--rich-visualizations` flag (off by default).
+   - [ ] 2j. Gate Phase 2 behind a `--rich-visualizations` flag (off by default).
          These files are larger and slower to generate. Only attempt with
          providers known to produce good frontend code (document which ones).
-   - [ ] 2k. Test Phase 3 output across Chrome, Firefox, and Safari (desktop
+   - [ ] 2k. Test Phase 2 output across Chrome, Firefox, and Safari (desktop
          and mobile) to ensure no browser-specific or responsive layout issues
          with the generated JS and CSS.
 
