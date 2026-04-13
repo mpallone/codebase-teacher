@@ -18,6 +18,7 @@ from jinja2 import Environment, FileSystemLoader
 from codebase_teacher.core.exceptions import LLMError
 from codebase_teacher.generator.diagrams import _clean_mermaid
 from codebase_teacher.generator.docs import (
+    API_CHUNK_SIZE,
     _format_apis,
     _format_data_flows,
     _format_infrastructure,
@@ -109,6 +110,41 @@ async def _generate_section(
         title=title,
         slug=_slugify(title),
         html_content=_markdown_to_html(response.content),
+    )
+
+
+async def _generate_api_section_chunked(
+    provider: LLMProvider,
+    analysis: AnalysisResult,
+    data_flows_formatted: str,
+) -> Section:
+    """Generate the API Reference section in chunks for large endpoint sets."""
+    endpoints = analysis.api_endpoints
+    chunks = [
+        endpoints[i : i + API_CHUNK_SIZE]
+        for i in range(0, len(endpoints), API_CHUNK_SIZE)
+    ]
+
+    html_parts: list[str] = []
+    for chunk in chunks:
+        prompt = PROMPTS["generate_api_doc"]
+        messages = [
+            Message(role="system", content=prompt.format_system()),
+            Message(
+                role="user",
+                content=prompt.format_user(
+                    apis=_format_apis(chunk),
+                    data_flows=data_flows_formatted,
+                ),
+            ),
+        ]
+        response = await provider.complete(messages)
+        html_parts.append(_markdown_to_html(response.content))
+
+    return Section(
+        title="API Reference",
+        slug="api-reference",
+        html_content="\n<hr />\n".join(html_parts),
     )
 
 
@@ -272,6 +308,20 @@ async def generate_html_page(
                 slug=_slugify(title),
                 html_content="<p>No infrastructure components were detected in this codebase.</p>",
             ))
+            continue
+
+        # Chunk API doc generation for large endpoint sets
+        if (
+            prompt_name == "generate_api_doc"
+            and len(analysis.api_endpoints) > API_CHUNK_SIZE
+        ):
+            try:
+                section = await _generate_api_section_chunked(
+                    provider, analysis, data_flows,
+                )
+                sections.append(section)
+            except LLMError as e:
+                errors.append((title, e))
             continue
 
         try:

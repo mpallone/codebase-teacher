@@ -44,3 +44,13 @@ class TestCreateProvider:
     def test_default_provider_is_claude_code(self):
         settings = Settings()
         assert settings.provider == "claude-code"
+
+    def test_claude_code_passes_timeout(self):
+        settings = Settings(provider="claude-code", cli_timeout=900)
+        with patch("codebase_teacher.llm.cli_provider.shutil.which", return_value="/usr/bin/claude"):
+            provider = create_provider(settings)
+        assert provider._timeout == 900
+
+    def test_default_cli_timeout_is_600(self):
+        settings = Settings()
+        assert settings.cli_timeout == 600

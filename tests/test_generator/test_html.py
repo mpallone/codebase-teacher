@@ -308,6 +308,47 @@ async def test_html_handles_empty_analysis(mock_provider, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_html_api_section_chunked_for_many_endpoints(mock_provider, tmp_path):
+    store, db = _make_store(tmp_path)
+    try:
+        # Create analysis with 25 endpoints (> API_CHUNK_SIZE of 20)
+        from codebase_teacher.generator.docs import API_CHUNK_SIZE
+        endpoints = [
+            APIEndpoint(
+                method="GET",
+                path=f"/api/item-{i}",
+                handler=f"get_item_{i}",
+                file="routes.py",
+                description=f"Get item {i}",
+            )
+            for i in range(API_CHUNK_SIZE + 5)
+        ]
+        analysis = AnalysisResult(
+            project_summary="A test project.",
+            module_summaries={"routes.py": "API routes."},
+            api_endpoints=endpoints,
+            infrastructure=[
+                InfraComponent(
+                    type="framework", technology="Flask",
+                    explanation="Web framework.", usage="Serves API.", config="N/A",
+                ),
+            ],
+        )
+
+        path, errors = await generate_html_page(
+            mock_provider, analysis, store, project_name="chunked-test",
+        )
+
+        content = path.read_text()
+        assert "API Reference" in content
+        # Provider should be called more times than with small endpoint sets
+        # (overview + architecture + API chunk 1 + API chunk 2 + infra + diagrams)
+        assert len(mock_provider._calls) >= 6
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
 async def test_html_project_name_in_title(mock_provider, tmp_path):
     store, db = _make_store(tmp_path)
     try:

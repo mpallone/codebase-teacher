@@ -101,12 +101,19 @@ async def generate_architecture_doc(
     return store.write("docs", "architecture.md", content)
 
 
+API_CHUNK_SIZE = 20
+
+
 async def generate_api_doc(
     provider: LLMProvider,
     analysis: AnalysisResult,
     store: ArtifactStore,
 ) -> Path:
-    """Generate API reference documentation."""
+    """Generate API reference documentation.
+
+    For codebases with many endpoints (> API_CHUNK_SIZE), the generation
+    is split into chunks so each LLM call covers a manageable subset.
+    """
     if not analysis.api_endpoints:
         # Still write a doc noting no APIs were found
         env = _get_jinja_env()
@@ -117,28 +124,59 @@ async def generate_api_doc(
         )
         return store.write("docs", "api-reference.md", content)
 
-    prompt = PROMPTS["generate_api_doc"]
-    messages = [
-        Message(role="system", content=prompt.format_system()),
-        Message(
-            role="user",
-            content=prompt.format_user(
-                apis=_format_apis(analysis.api_endpoints),
-                data_flows=_format_data_flows(analysis.data_flows),
+    if len(analysis.api_endpoints) > API_CHUNK_SIZE:
+        body = await _generate_api_doc_chunked(provider, analysis)
+    else:
+        prompt = PROMPTS["generate_api_doc"]
+        messages = [
+            Message(role="system", content=prompt.format_system()),
+            Message(
+                role="user",
+                content=prompt.format_user(
+                    apis=_format_apis(analysis.api_endpoints),
+                    data_flows=_format_data_flows(analysis.data_flows),
+                ),
             ),
-        ),
-    ]
-
-    response = await provider.complete(messages)
+        ]
+        response = await provider.complete(messages)
+        body = response.content
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
-    content = template.render(
-        title="API Reference",
-        body=response.content,
-    )
+    content = template.render(title="API Reference", body=body)
 
     return store.write("docs", "api-reference.md", content)
+
+
+async def _generate_api_doc_chunked(
+    provider: LLMProvider,
+    analysis: AnalysisResult,
+) -> str:
+    """Generate API docs in chunks for large endpoint sets."""
+    endpoints = analysis.api_endpoints
+    chunks = [
+        endpoints[i : i + API_CHUNK_SIZE]
+        for i in range(0, len(endpoints), API_CHUNK_SIZE)
+    ]
+    data_flows = _format_data_flows(analysis.data_flows)
+
+    parts: list[str] = []
+    for idx, chunk in enumerate(chunks, 1):
+        prompt = PROMPTS["generate_api_doc"]
+        messages = [
+            Message(role="system", content=prompt.format_system()),
+            Message(
+                role="user",
+                content=prompt.format_user(
+                    apis=_format_apis(chunk),
+                    data_flows=data_flows,
+                ),
+            ),
+        ]
+        response = await provider.complete(messages)
+        parts.append(response.content)
+
+    return "\n\n---\n\n".join(parts)
 
 
 async def generate_infra_doc(

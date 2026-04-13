@@ -17,7 +17,7 @@ def create_provider(settings: Settings) -> LLMProvider:
     if settings.provider == "claude-code":
         from codebase_teacher.llm.cli_provider import ClaudeCodeProvider
 
-        return ClaudeCodeProvider(max_tokens=settings.max_tokens)
+        return ClaudeCodeProvider(max_tokens=settings.max_tokens, timeout=settings.cli_timeout)
     elif settings.provider == "litellm":
         from codebase_teacher.llm.litellm_adapter import LiteLLMProvider
 
