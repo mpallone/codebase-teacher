@@ -21,7 +21,7 @@ Address all findings from the verification subagent before committing.
 ## Post-Teach Workflow
 
 After the teach subagent (`.claude/agents/teach.md`) returns its assessment,
-or after running the `/teach-and-push` command, always do the following:
+or after running the `/teach-evaluate-push` command, always do the following:
 
 1. Display the subagent's **full** structured assessment without summarizing.
 2. Display the **full contents** of every generated file in

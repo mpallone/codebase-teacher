@@ -18,13 +18,31 @@ Invoke this agent with a path to a repository and an output format:
 
 ## Pipeline
 
-Run these commands in order against the target path:
+Before running the pipeline, capture the start timestamp:
 
-1. `teach scan --auto {path}`
-2. `teach analyze {path}`
-3. `teach generate --format {format} {path}`
+```bash
+date +%s
+```
 
-If any step fails, report the error and stop.
+Record this as PIPELINE_START_EPOCH.
+
+Run these commands in order against the target path, capturing a timestamp
+before and after each step:
+
+1. Record SCAN_START_EPOCH (`date +%s`), then run `teach scan --auto {path}`, then record SCAN_END_EPOCH (`date +%s`).
+2. Record ANALYZE_START_EPOCH (`date +%s`), then run `teach analyze {path}`, then record ANALYZE_END_EPOCH (`date +%s`).
+3. Record GENERATE_START_EPOCH (`date +%s`), then run `teach generate --format {format} {path}`, then record GENERATE_END_EPOCH (`date +%s`).
+
+If any step fails, report the error (including timing for any steps that did
+complete) and stop.
+
+After all three steps succeed, record PIPELINE_END_EPOCH (`date +%s`).
+
+Compute durations:
+- scan_duration = SCAN_END_EPOCH - SCAN_START_EPOCH
+- analyze_duration = ANALYZE_END_EPOCH - ANALYZE_START_EPOCH
+- generate_duration = GENERATE_END_EPOCH - GENERATE_START_EPOCH
+- pipeline_total = PIPELINE_END_EPOCH - PIPELINE_START_EPOCH
 
 ## Evaluation
 
@@ -123,6 +141,12 @@ Report your findings as a structured assessment:
 - Viewport meta: {present/missing}
 - Self-contained CSS: {yes/no}
 - All sections present: {yes/no — list any missing}
+
+### Execution Time
+- Scan: {scan_duration}s
+- Analyze: {analyze_duration}s
+- Generate: {generate_duration}s
+- Pipeline total: {pipeline_total}s
 
 ### Overall Assessment
 - Overall score: {1-5}
