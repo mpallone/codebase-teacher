@@ -5,11 +5,16 @@ repository and evaluates the quality of the generated documentation.
 
 ## Usage
 
-Invoke this agent with a path to a repository:
+Invoke this agent with a path to a repository and an output format:
 
 ```
-/agents/teach tests/repos/httpbin
+/agents/teach tests/repos/httpbin markdown
+/agents/teach tests/repos/httpbin html
 ```
+
+**Parameters (both mandatory):**
+1. `{path}` — path to the target repository
+2. `{format}` — output format: `markdown` or `html`
 
 ## Pipeline
 
@@ -17,23 +22,45 @@ Run these commands in order against the target path:
 
 1. `teach scan --auto {path}`
 2. `teach analyze {path}`
-3. `teach generate {path}`
+3. `teach generate --format {format} {path}`
 
 If any step fails, report the error and stop.
 
 ## Evaluation
 
-After the pipeline completes, read the generated outputs:
+After the pipeline completes, evaluate the output based on the chosen format.
 
+### When format is `markdown`
+
+Read the generated outputs:
+
+- `{path}/.teacher-output/docs/overview.md`
 - `{path}/.teacher-output/docs/architecture.md`
 - `{path}/.teacher-output/docs/api-reference.md`
 - `{path}/.teacher-output/docs/infrastructure.md`
 - `{path}/.teacher-output/diagrams/architecture.md`
 - `{path}/.teacher-output/diagrams/data-flow.md`
 
+### When format is `html`
+
+Read the single generated file:
+
+- `{path}/.teacher-output/index.html`
+
+In addition to the content quality checks below, verify these HTML-specific
+requirements:
+
+- **Sidebar navigation** — `<nav class="sidebar">` exists with links to all sections
+- **Theme toggle** — a button or control for light/dark switching is present
+- **Mermaid support** — `mermaid.min.js` CDN script tag is present
+- **Mermaid rendering** — diagram content uses `<pre class="mermaid">` tags (not markdown fences)
+- **Responsive viewport** — `<meta name="viewport" ...>` tag is present
+- **Self-contained** — all CSS is inline (no external stylesheet links other than mermaid CDN)
+- **All sections present** — the page contains sections for: Start Here, Architecture Overview, API Reference, Infrastructure, Architecture Diagram, Data Flow Diagrams
+
 Then read the actual source code to build your own understanding of the repo.
 
-Evaluate each output file on these criteria:
+Evaluate each output on these criteria:
 
 ### Completeness
 - Are all API endpoints covered?
@@ -60,7 +87,7 @@ Report your findings as a structured assessment:
 ## Pipeline Results
 - Scan: [pass/fail] — {details}
 - Analyze: [pass/fail] — {details}
-- Generate: [pass/fail] — {details}
+- Generate (format: {format}): [pass/fail] — {details}
 
 ## Evaluation
 
@@ -87,6 +114,15 @@ Report your findings as a structured assessment:
 - Renders correctly: {yes/no}
 - Informative: {1-5}
 - Notes: {specific observations}
+
+### HTML Structure (html format only)
+- Sidebar nav: {present/missing}
+- Theme toggle: {present/missing}
+- Mermaid CDN script: {present/missing}
+- Mermaid <pre> tags: {present/missing}
+- Viewport meta: {present/missing}
+- Self-contained CSS: {yes/no}
+- All sections present: {yes/no — list any missing}
 
 ### Overall Assessment
 - Overall score: {1-5}

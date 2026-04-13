@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 
 from codebase_teacher.generator.docs import (
+    API_CHUNK_SIZE,
     generate_all_docs,
+    generate_api_doc,
     generate_overview_doc,
 )
 from codebase_teacher.storage.artifact_store import ArtifactStore
@@ -115,6 +117,37 @@ async def test_generate_overview_doc_handles_empty_analysis(mock_provider, tmp_p
         assert path.exists()
         content = path.read_text()
         assert "# Start Here" in content
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_api_doc_chunks_many_endpoints(mock_provider, tmp_path):
+    store, db = _make_store(tmp_path)
+    try:
+        # Create analysis with more endpoints than API_CHUNK_SIZE
+        endpoints = [
+            APIEndpoint(
+                method="GET",
+                path=f"/api/resource-{i}",
+                handler=f"get_resource_{i}",
+                file="routes.py",
+                description=f"Get resource {i}",
+            )
+            for i in range(API_CHUNK_SIZE + 5)
+        ]
+        analysis = AnalysisResult(
+            project_summary="A test project.",
+            api_endpoints=endpoints,
+        )
+
+        path = await generate_api_doc(mock_provider, analysis, store)
+
+        assert path.exists()
+        assert path.name == "api-reference.md"
+        # With chunking, the provider should be called multiple times
+        # (one per chunk, not just once)
+        assert len(mock_provider._calls) >= 2
     finally:
         db.close()
 

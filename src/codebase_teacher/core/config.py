@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     )
     verbose: bool = False
     max_concurrent_llm_calls: int = Field(default=5, gt=0)
+    cli_timeout: int = Field(
+        default=600,
+        gt=0,
+        description="Timeout in seconds for CLI provider calls. Increase for large codebases.",
+    )
 
     model_config = {"env_prefix": "CODEBASE_TEACHER_"}
 
