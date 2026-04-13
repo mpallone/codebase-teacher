@@ -27,11 +27,17 @@ date +%s%3N
 Record this as PIPELINE_START_MS.
 
 Run these commands in order against the target path, capturing a timestamp
-before and after each step:
+before and after each step. Print a status banner before and after each step:
 
-1. Record SCAN_START_MS (`date +%s%3N`), then run `teach scan --auto {path}`, then record SCAN_END_MS (`date +%s%3N`).
-2. Record ANALYZE_START_MS (`date +%s%3N`), then run `teach analyze {path}`, then record ANALYZE_END_MS (`date +%s%3N`).
-3. Record GENERATE_START_MS (`date +%s%3N`), then run `teach generate --format {format} {path}`, then record GENERATE_END_MS (`date +%s%3N`).
+1. Print `## [Step 1/4] Scanning repository ({path})...`
+   Record SCAN_START_MS (`date +%s%3N`), then run `teach scan --auto {path}`, then record SCAN_END_MS (`date +%s%3N`).
+   Print `## [Step 1/4] Scan complete ({formatted scan_duration}).`
+2. Print `## [Step 2/4] Analyzing codebase...`
+   Record ANALYZE_START_MS (`date +%s%3N`), then run `teach analyze {path}`, then record ANALYZE_END_MS (`date +%s%3N`).
+   Print `## [Step 2/4] Analysis complete ({formatted analyze_duration}).`
+3. Print `## [Step 3/4] Generating {format} output...`
+   Record GENERATE_START_MS (`date +%s%3N`), then run `teach generate --format {format} {path}`, then record GENERATE_END_MS (`date +%s%3N`).
+   Print `## [Step 3/4] Generation complete ({formatted generate_duration}).`
 
 If any step fails, report the error (including timing for any steps that did
 complete) and stop.
@@ -54,6 +60,8 @@ units (omit leading zero units, e.g. `7m 59s 480ms` not `0d 0h 7m 59s 480ms`):
 - remaining ms = ms mod 1 000
 
 ## Evaluation
+
+Print `## [Step 4/4] Evaluating generated output...`
 
 After the pipeline completes, evaluate the output based on the chosen format.
 
@@ -105,6 +113,8 @@ Evaluate each output on these criteria:
 - Would a new developer find the architecture doc helpful for onboarding?
 - Are the Mermaid diagrams clear and informative?
 - Is the level of detail appropriate (not too shallow, not too verbose)?
+
+Print `## [Step 4/4] Evaluation complete.`
 
 ## Output Format
 
