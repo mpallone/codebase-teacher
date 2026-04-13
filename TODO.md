@@ -161,3 +161,156 @@
 18. [ ] Fix mermaid diagram rendering on mobile. Diagrams break or render incorrectly
     on device rotation. Reproduce using browser dev tools on laptop to simulate mobile
     device rotation, grab the console logs, feed them to Claude, and iterate until fixed.
+
+## Deeper Analysis
+
+These items extend the existing `teach analyze` pipeline to capture more about a codebase.
+Each follows the established pattern: new analyzer → new fields on `AnalysisResult` → new
+doc section in `teach generate` output.
+
+20. [ ] **Test coverage analysis.** Detect test files (the file classifier already tags
+    `category=test`), count test functions, cross-reference against source modules using
+    import analysis and naming conventions, and have the LLM assess whether coverage
+    appears adequate. Output: a new `docs/test-coverage.md` section listing which modules
+    have tests, what types of tests exist (unit, integration, e2e), and what major code
+    paths appear untested.
+
+    **Feasibility: Good.** File classifier + AST parser already provide the raw data.
+    This is primarily prompt engineering plus a cross-reference heuristic. Note: the output
+    is qualitative ("module X has no tests"), not quantitative line coverage — it is not a
+    replacement for `coverage.py`, but is useful for onboarding.
+
+21. [ ] **Production configuration analysis.** Detect config files (already classified),
+    identify environment-specific configs (dev/staging/prod), document what configuration
+    knobs exist, which are required, and what their defaults are. Output: a new
+    `docs/configuration.md` section.
+
+    **Feasibility: Good with caveats.** Many repos keep prod config outside the repo
+    (Vault, SSM, environment variables). The tool should document what it *can* see and
+    explicitly flag what appears to be missing or externally managed. "How do I configure
+    this to run locally?" is always the first question a new engineer asks, so this has
+    high onboarding value even with incomplete information.
+
+22. [ ] **Operational readiness analysis** (alerts + dashboards + failure modes, combined).
+    Single doc section covering:
+    - **Alerts:** Detect alerting rules (Prometheus `.rules`, Terraform alert resources,
+      Datadog monitors-as-code). Document what each alert watches, what it means when it
+      fires, and how to respond.
+    - **Dashboards:** Detect dashboard definitions (Grafana JSON, Datadog
+      dashboards-as-code). Document what metrics are visualized.
+    - **Failure modes:** For each infrastructure dependency identified by the existing
+      infra detector, analyze what happens if it fails. Are there retries, circuit
+      breakers, fallbacks, graceful degradation? Are existing alerts adequate for each
+      failure scenario?
+    Output: a new `docs/operational-readiness.md` section.
+
+    **Feasibility: Moderate.** Alert and dashboard detection only works when config-as-code
+    is present — many orgs keep these in UIs, so the tool will often find nothing. The
+    failure mode analysis is higher value: it is LLM-driven reasoning over existing
+    infrastructure + data flow data. Even speculative output is useful ("no retry logic
+    detected for database calls"). When alert/dashboard configs are absent, the doc should
+    say so and recommend what observability *should* exist.
+
+23. [ ] **Dependency sanity checks.** After scanning dependencies, have the LLM review the
+    dependency list + project summary and flag anything that appears missing or
+    misconfigured. Check whether prod config, alert config, and dashboard config exist in
+    the repo. Output: a "sanity check" summary at the top of the generated docs.
+
+    **Feasibility: Moderate.** What's "critical" is stack-dependent, but the LLM is good
+    at this reasoning (e.g., "Flask app with no WSGI server in requirements"). This is
+    distinct from providing install instructions for missing libraries (which duplicates
+    package managers and is out of scope).
+
+## Teaching Artifacts
+
+These are new document types generated from the existing `AnalysisResult`. They fit the
+existing `generate` architecture — just differently-structured output. All teaching content
+targets a Senior Software Engineer who is experienced but unfamiliar with the specific
+codebase, per the product spec's style guidance.
+
+24. [ ] **Lecture generation (pipeline-ordered).** Generate a structured walkthrough that
+    teaches the codebase following data flow order: entry points (API routes, consumers) →
+    transformations (business logic, side effects) → outputs (DB writes, responses,
+    published events). The existing `DataFlow` analysis provides the ordering.
+
+    This is the **highest-value teaching feature** from the product spec. A lecture is a
+    differently-organized view of the existing analysis: instead of "here's the
+    architecture" (reference doc), it's "let me walk you through this step by step"
+    (tutorial). New CLI surface: either `teach lecture <path>` or a `--type lecture` flag
+    on `teach generate`. Output: `lectures/` directory in `.teacher-output/`.
+
+    **Feasibility: Good.** New prompt + generator function following the established
+    pattern. The hard part is getting the LLM to order content by data flow rather than
+    by directory structure. The data flow traces already exist to inform this ordering.
+
+25. [ ] **Flashcard / offline quiz generation.** Generate markdown flashcards with Q/A
+    format. Questions like "What does module X do?", "What happens when endpoint Y is
+    called?", "What infrastructure does Z depend on?" Answers include justifications
+    referencing the actual code (per the product spec's requirement for offline learning
+    artifacts with clear justifications).
+
+    Format: markdown file using `<details>` tags for answer reveal. Usable without an
+    internet connection. Output: `.teacher-output/flashcards.md`.
+
+    **Feasibility: Good.** Straightforward LLM generation from existing analysis data.
+    Low implementation cost, moderate learning value.
+
+26. [ ] **On-call practice scenarios.** Generate realistic on-call scenarios based on the
+    actual infrastructure, APIs, and failure modes of the target codebase. Example: "You
+    get paged at 2am. Service X is returning 500s. Dashboard shows Y. Walk through your
+    debugging steps." Include expected investigation steps and resolution.
+
+    Produces markdown, not interactive. Ideally builds on operational readiness analysis
+    (#22) for more realistic scenarios. Output: `.teacher-output/scenarios.md`.
+
+    **Feasibility: Good.** Natural LLM task. Quality depends on prompt engineering.
+    Scenarios will be synthetic (no actual production incident history), but still valuable
+    for building on-call intuition about a specific codebase. Set expectations that these
+    are practice exercises, not runbooks.
+
+27. [ ] **Exercise generation (without scoring).** Generate exercises for the learner to
+    complete: implement a small feature, improve test coverage for a specific module, make
+    the codebase run locally. Include rubrics describing what a good solution looks like.
+
+    **Automated scoring is deferred** — it is a fundamentally different problem requiring
+    either code execution (build environment) or LLM evaluation of solutions (unreliable,
+    expensive). For now, generate exercise descriptions with rubrics only.
+
+    **Feasibility: Moderate.** Lower value-to-effort ratio than lectures and flashcards.
+    Exercises risk being generic without deep codebase understanding. Prioritize after
+    #24-26.
+
+## Learner Evaluation
+
+28. [ ] **CLI quiz / knowledge evaluation.** New command: `teach evaluate <path>`. Runs an
+    interactive CLI quiz: asks N questions about the codebase, the learner types answers,
+    and the LLM scores each answer against the `AnalysisResult` ground truth. Output: a
+    scorecard markdown file summarizing performance across dimensions.
+
+    Evaluation dimensions should emerge naturally from whatever analysis capabilities
+    exist (API knowledge, infrastructure knowledge, data flow understanding, configuration
+    knowledge, operational readiness) rather than being predefined.
+
+    **Feasibility: Architecturally clear, UX-novel.** This is the tool's first REPL-style
+    interaction — a significant new CLI pattern. **Defer until teaching artifacts (#24-27)
+    are validated**, since evaluation presupposes teaching content exists.
+
+## Interactive Teaching
+
+29. [ ] **Interactive teaching via generated Claude Code commands.** Reduced scope approach:
+    generate a `.claude/commands/learn-<repo>.md` custom command that a learner can invoke
+    to start a guided conversation with the analysis results pre-loaded as context. This
+    leverages Claude Code's existing interactive capabilities rather than building a custom
+    REPL from scratch.
+
+    The product spec flags this as an open question ("not sure exactly what this would
+    look like"). Start with a simple "quiz me" / "teach me about <topic>" command that has
+    the `AnalysisResult` summary, data flows, and infrastructure baked into its system
+    context. The learner gets an interactive conversational tutor backed by real analysis
+    of their codebase.
+
+    **Feasibility: Moderate.** The tool already generates markdown artifacts. Generating a
+    Claude Code command file that includes key analysis context is a natural extension. The
+    interactive experience is delegated to Claude Code itself. Open question: how to keep
+    the command file within context limits for large codebases (may need to summarize
+    aggressively or reference generated docs rather than inlining everything).
