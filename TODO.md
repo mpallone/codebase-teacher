@@ -28,22 +28,37 @@
    targets sized appropriately. This applies to every phase.
 
    ### Phase 1: Static HTML shell with rendered diagrams
-   - [ ] 2a. Create an HTML page template (Jinja2) that replaces `doc_page.md.j2`.
+   - [x] 2a. Create an HTML page template (Jinja2) that replaces `doc_page.md.j2`.
          Single-file or small file set. Inline CSS for styling (no build step).
          Include: styled typography, a sidebar nav linking all generated docs,
          collapsible `<details>` sections for long content, a light/dark toggle.
          Use responsive CSS (media queries, fluid widths) so the layout works
          on mobile — sidebar collapses to a hamburger menu or top nav on small
          screens.
-   - [ ] 2b. Render Mermaid diagrams live by including `mermaid.js` from CDN in a
+         Implemented as `generator/templates/doc_page.html.j2` — single-page HTML
+         with inline CSS custom properties (light/dark), fixed sidebar with
+         scroll-spy active highlighting, hamburger menu on mobile (<768px),
+         collapsible `<details>` sections, and theme toggle with localStorage
+         persistence. See `generator/html.py::generate_html_page`.
+   - [x] 2b. Render Mermaid diagrams live by including `mermaid.js` from CDN in a
          `<script>` tag. Convert existing ``` mermaid ``` code blocks into
          `<pre class="mermaid">` blocks that mermaid.js picks up automatically.
-   - [ ] 2c. Add a `--format` flag to the CLI (`markdown` default, `html` option).
+         Implemented with mermaid.js v11.4.1 CDN. Diagrams render individually
+         with error recovery — broken diagrams show source code as fallback.
+         `_sanitize_mermaid()` cleans LLM output (smart quotes, em/en dashes).
+         Theme toggle re-renders diagrams with matching mermaid theme.
+   - [x] 2c. Add a `--format` flag to the CLI (`markdown` default, `html` option).
          When `html` is selected, use the HTML template instead of the markdown
          template. Output goes to the same `.teacher-output/` directory.
-   - [ ] 2d. Ensure the HTML output is fully self-contained (opens in any browser
+         Implemented in `cli/generate.py`. HTML mode produces a single
+         `index.html` in `.teacher-output/`. API doc generation uses chunking
+         (groups of 20 endpoints) to avoid timeouts on large codebases.
+         CLI timeout is now configurable via `cli_timeout` setting (default 600s).
+   - [x] 2d. Ensure the HTML output is fully self-contained (opens in any browser
          with no server, no build step). The only external dependency allowed is
          the mermaid.js CDN script tag.
+         Confirmed: all CSS is inline, all content embedded, only external
+         resource is the pinned mermaid.js CDN script.
 
    ### Phase 2: LLM-generated interactive elements
    - [ ] 2e. Update generation prompts to request inline interactive HTML components
