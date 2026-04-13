@@ -21,28 +21,37 @@ Invoke this agent with a path to a repository and an output format:
 Before running the pipeline, capture the start timestamp:
 
 ```bash
-date +%s
+date +%s%3N
 ```
 
-Record this as PIPELINE_START_EPOCH.
+Record this as PIPELINE_START_MS.
 
 Run these commands in order against the target path, capturing a timestamp
 before and after each step:
 
-1. Record SCAN_START_EPOCH (`date +%s`), then run `teach scan --auto {path}`, then record SCAN_END_EPOCH (`date +%s`).
-2. Record ANALYZE_START_EPOCH (`date +%s`), then run `teach analyze {path}`, then record ANALYZE_END_EPOCH (`date +%s`).
-3. Record GENERATE_START_EPOCH (`date +%s`), then run `teach generate --format {format} {path}`, then record GENERATE_END_EPOCH (`date +%s`).
+1. Record SCAN_START_MS (`date +%s%3N`), then run `teach scan --auto {path}`, then record SCAN_END_MS (`date +%s%3N`).
+2. Record ANALYZE_START_MS (`date +%s%3N`), then run `teach analyze {path}`, then record ANALYZE_END_MS (`date +%s%3N`).
+3. Record GENERATE_START_MS (`date +%s%3N`), then run `teach generate --format {format} {path}`, then record GENERATE_END_MS (`date +%s%3N`).
 
 If any step fails, report the error (including timing for any steps that did
 complete) and stop.
 
-After all three steps succeed, record PIPELINE_END_EPOCH (`date +%s`).
+After all three steps succeed, record PIPELINE_END_MS (`date +%s%3N`).
 
-Compute durations:
-- scan_duration = SCAN_END_EPOCH - SCAN_START_EPOCH
-- analyze_duration = ANALYZE_END_EPOCH - ANALYZE_START_EPOCH
-- generate_duration = GENERATE_END_EPOCH - GENERATE_START_EPOCH
-- pipeline_total = PIPELINE_END_EPOCH - PIPELINE_START_EPOCH
+Compute durations in milliseconds:
+- scan_duration = SCAN_END_MS - SCAN_START_MS
+- analyze_duration = ANALYZE_END_MS - ANALYZE_START_MS
+- generate_duration = GENERATE_END_MS - GENERATE_START_MS
+- pipeline_total = PIPELINE_END_MS - PIPELINE_START_MS
+
+Format each duration as a human-readable string using the largest applicable
+units (omit leading zero units, e.g. `7m 59s 480ms` not `0d 0h 7m 59s 480ms`):
+
+- d = ms ÷ 86 400 000
+- h = (ms mod 86 400 000) ÷ 3 600 000
+- m = (ms mod 3 600 000) ÷ 60 000
+- s = (ms mod 60 000) ÷ 1 000
+- remaining ms = ms mod 1 000
 
 ## Evaluation
 
@@ -143,10 +152,10 @@ Report your findings as a structured assessment:
 - All sections present: {yes/no — list any missing}
 
 ### Execution Time
-- Scan: {scan_duration}s
-- Analyze: {analyze_duration}s
-- Generate: {generate_duration}s
-- Pipeline total: {pipeline_total}s
+- Scan: {formatted scan_duration}
+- Analyze: {formatted analyze_duration}
+- Generate: {formatted generate_duration}
+- Pipeline total: {formatted pipeline_total}
 
 ### Overall Assessment
 - Overall score: {1-5}

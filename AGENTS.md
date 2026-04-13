@@ -24,8 +24,9 @@ After the teach subagent (`.claude/agents/teach.md`) returns its assessment,
 or after running the `/teach-evaluate-push` command, always do the following:
 
 1. Display the subagent's **full** structured assessment without summarizing.
-2. Display the **full contents** of every generated file in
-   `{path}/.teacher-output/`.
+2. For each generated file in `{path}/.teacher-output/`, display only its
+   file name and size. The full content will be viewable via the GitHub
+   links in step 5.
 3. Copy the output into the codebase-teacher repo for committing:
    ```bash
    mkdir -p .teacher-staging/{basename}
