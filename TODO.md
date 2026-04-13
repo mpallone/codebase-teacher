@@ -133,3 +133,6 @@
     - Ensure this feature is documented.
 16. [ ] Double-check all languages I need to use this on, and add support for them.
 17. [ ] Add support for C++ (file classification + tree-sitter AST parsing, matching existing language support).
+18. [ ] Fix mermaid diagram rendering on mobile. Diagrams break or render incorrectly
+    on device rotation. Reproduce using browser dev tools on laptop to simulate mobile
+    device rotation, grab the console logs, feed them to Claude, and iterate until fixed.
