@@ -68,10 +68,28 @@ def _convert_mermaid_blocks(html_content: str) -> str:
     """
     return re.sub(
         r'<pre><code class="language-mermaid">(.*?)</code></pre>',
-        lambda m: f'<pre class="mermaid">{html.unescape(m.group(1))}</pre>',
+        lambda m: f'<pre class="mermaid">{_sanitize_mermaid(html.unescape(m.group(1)))}</pre>',
         html_content,
         flags=re.DOTALL,
     )
+
+
+def _sanitize_mermaid(code: str) -> str:
+    """Clean up LLM-generated mermaid code to reduce rendering failures.
+
+    Common issues:
+    - Unquoted special characters in node labels (parentheses, brackets, etc.)
+    - Smart quotes that Mermaid can't parse
+    - Leading/trailing whitespace that confuses the parser
+    """
+    # Strip leading/trailing whitespace
+    code = code.strip()
+    # Replace smart quotes with straight quotes
+    code = code.replace("\u201c", '"').replace("\u201d", '"')
+    code = code.replace("\u2018", "'").replace("\u2019", "'")
+    # Replace em/en dashes with regular dashes (can break arrow syntax)
+    code = code.replace("\u2014", "--").replace("\u2013", "-")
+    return code
 
 
 async def _generate_section(
@@ -123,7 +141,7 @@ async def _generate_diagram_section(
             ),
         ]
         response = await provider.complete(messages)
-        mermaid_code = _clean_mermaid(response.content)
+        mermaid_code = _sanitize_mermaid(_clean_mermaid(response.content))
         html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
         return Section(
             title="Architecture Diagram",
@@ -136,9 +154,10 @@ async def _generate_diagram_section(
             parts: list[str] = []
             for flow in analysis.data_flows:
                 if flow.mermaid_diagram:
+                    cleaned = _sanitize_mermaid(flow.mermaid_diagram)
                     parts.append(
                         f"<h3>{html.escape(flow.name)}</h3>\n"
-                        f'<pre class="mermaid">{html.escape(flow.mermaid_diagram)}</pre>'
+                        f'<pre class="mermaid">{html.escape(cleaned)}</pre>'
                     )
                 else:
                     parts.append(
@@ -173,7 +192,7 @@ async def _generate_diagram_section(
             ),
         ]
         response = await provider.complete(messages)
-        mermaid_code = _clean_mermaid(response.content)
+        mermaid_code = _sanitize_mermaid(_clean_mermaid(response.content))
         html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
         return Section(
             title="Data Flow Diagrams",

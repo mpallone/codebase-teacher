@@ -7,6 +7,7 @@ import pytest
 from codebase_teacher.generator.html import (
     _convert_mermaid_blocks,
     _markdown_to_html,
+    _sanitize_mermaid,
     _slugify,
     generate_html_page,
 )
@@ -71,6 +72,31 @@ def _make_analysis() -> AnalysisResult:
 
 
 # --- Unit tests for helpers ---
+
+
+class TestSanitizeMermaid:
+    def test_strips_whitespace(self):
+        assert _sanitize_mermaid("  graph TD\n    A-->B  ") == "graph TD\n    A-->B"
+
+    def test_replaces_smart_quotes(self):
+        result = _sanitize_mermaid('A["\u201cHello\u201d"]')
+        assert '\u201c' not in result
+        assert '"Hello"' in result
+
+    def test_replaces_smart_single_quotes(self):
+        result = _sanitize_mermaid("A['\u2018it\u2019s']")
+        assert "\u2018" not in result
+        assert "'it's'" in result
+
+    def test_replaces_em_dash(self):
+        result = _sanitize_mermaid("A \u2014 B")
+        assert "\u2014" not in result
+        assert "A -- B" in result
+
+    def test_replaces_en_dash(self):
+        result = _sanitize_mermaid("A \u2013> B")
+        assert "\u2013" not in result
+        assert "A -> B" in result
 
 
 class TestSlugify:
@@ -176,6 +202,25 @@ async def test_html_has_mermaid_script(mock_provider, tmp_path):
 
         assert "mermaid.min.js" in content
         assert "cdn.jsdelivr.net" in content
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_html_has_mermaid_error_recovery(mock_provider, tmp_path):
+    store, db = _make_store(tmp_path)
+    try:
+        analysis = _make_analysis()
+        path, _ = await generate_html_page(
+            mock_provider, analysis, store, project_name="test-project",
+        )
+        content = path.read_text()
+
+        # Error recovery: individual rendering with fallback
+        assert "mermaid.parse" in content
+        assert "mermaid-error" in content
+        # Pinned version
+        assert "mermaid@11.4.1" in content
     finally:
         db.close()
 
