@@ -45,6 +45,23 @@ the bash commands. Always run the bash commands.
 - Before step 3: print `## [Step 3/4] Generating {format} output...`
 - After step 3: print `## [Step 3/4] Generation complete ({formatted generate_duration}).`
 
+**Evidence requirement for "after step" banners (do not skip).** Only print
+an "after step" banner once the bash command for that step has actually
+returned with a zero exit code AND the expected artifacts exist on disk:
+
+- After scan: `{path}/.teacher/teacher.db` exists and is non-empty.
+- After analyze: the `teach analyze` command returned successfully (no
+  separate file to check — the database update is internal).
+- After generate: for `--format html`, `{path}/.teacher-output/index.html`
+  exists. For `--format markdown`, `{path}/.teacher-output/docs/overview.md`
+  exists.
+
+If the command fails, returns a non-zero exit code, or the expected file is
+missing, print a failure banner for that step (e.g., `## [Step 3/4] Generate
+failed — index.html not produced. Stopping.`) and stop. Do not continue to
+later steps. Do not fabricate results. These checks exist because a
+previous run of this agent hallucinated success; do not remove them.
+
 If any step fails, report the error (including timing for any steps that did
 complete) and stop.
 
