@@ -121,9 +121,9 @@
           uses it — `llm/context_manager.py:53-59, 105`). Exposed via env
           var `CODEBASE_TEACHER_MAX_CONCURRENT_LLM_CALLS` (existing
           mechanism).
-    - [ ] Reduce API chunk size from 20 to 10. Change
+    - [ ] Reduce API chunk size from 20 to 5. Change
           `API_CHUNK_SIZE = 20` at
-          `src/codebase_teacher/generator/docs.py:104` to `10`. Smaller
+          `src/codebase_teacher/generator/docs.py:104` to `5`. Smaller
           chunks keep each `claude` CLI call well under the 600s timeout,
           and combined with parallel chunk execution the wall-clock
           impact is net-positive.
@@ -159,7 +159,7 @@
     - `max_concurrent_llm_calls` defaults to 10 and its value is
       respected by both analyze and generate phases (verifiable by
       setting it to 1 and observing serialized behavior).
-    - `API_CHUNK_SIZE` is 10; httpbin's 55 endpoints produce 6 chunks,
+    - `API_CHUNK_SIZE` is 5; httpbin's 55 endpoints produce 11 chunks,
       generated concurrently.
     - All existing tests in `uv run pytest` pass. New tests cover: the
       shared-semaphore wiring, the failed-section banner rendering, the
