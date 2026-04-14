@@ -76,6 +76,95 @@
          and mobile) to ensure no browser-specific or responsive layout issues
          with the generated JS and CSS.
 
+## Pipeline Parallelism & Failure Surfacing
+
+30. [ ] **Parallelize LLM calls, make concurrency configurable, and surface
+    silent section-generation failures.**
+
+    **Motivation.** Running `teach generate --format html` on httpbin
+    (6 source files, 55 endpoints) took 16m 6s because each section is
+    generated via a sequential `claude` CLI subprocess call. One section
+    (API Reference) hit the 600s `cli_timeout`, was caught per-section,
+    and silently dropped from the output — the sidebar in `index.html`
+    just omitted the link. Users reading the generated artifact had no
+    way to know a section was missing.
+
+    **Work items (all under one change):**
+
+    - [ ] Parallelize section generation in HTML output.
+          `src/codebase_teacher/generator/html.py::generate_html_page`
+          (lines 296-339) runs `doc_specs` (4 entries) and diagram
+          sections (2 entries) in sequential `for … await` loops. Replace
+          with `asyncio.gather(...)` bounded by a shared
+          `asyncio.Semaphore`. Preserve the existing per-section
+          `try/except LLMError` behavior so a single failure doesn't
+          abort the gather.
+    - [ ] Parallelize doc generation in markdown output.
+          `src/codebase_teacher/generator/docs.py::generate_all_docs`
+          (lines 240-244) has the same sequential loop pattern. Same fix
+          — `asyncio.gather` with the shared semaphore.
+    - [ ] Parallelize module summarization in analyze.
+          `src/codebase_teacher/cli/analyze.py` (lines 152-155) serializes
+          `ctx_manager.summarize_module(...)` calls. Reuse the semaphore
+          already held by `ContextManager`
+          (`src/codebase_teacher/llm/context_manager.py:105`) and gather
+          the module summaries.
+    - [ ] Parallelize API-reference chunk calls.
+          In `generator/html.py::_generate_api_section_chunked` (called
+          at line 319) and the equivalent path in `generator/docs.py`,
+          run chunk generation calls concurrently rather than
+          sequentially. Use the same shared semaphore.
+    - [ ] Make concurrency configurable. Bump
+          `max_concurrent_llm_calls` default from 5 to 10 in
+          `src/codebase_teacher/core/config.py:37`. Thread the value
+          through to the generator layer (currently only `ContextManager`
+          uses it — `llm/context_manager.py:53-59, 105`). Exposed via env
+          var `CODEBASE_TEACHER_MAX_CONCURRENT_LLM_CALLS` (existing
+          mechanism).
+    - [ ] Reduce API chunk size from 20 to 10. Change
+          `API_CHUNK_SIZE = 20` at
+          `src/codebase_teacher/generator/docs.py:104` to `10`. Smaller
+          chunks keep each `claude` CLI call well under the 600s timeout,
+          and combined with parallel chunk execution the wall-clock
+          impact is net-positive.
+    - [ ] Surface silent section failures in the artifact itself.
+          The CLI already prints `[red]Failed:[/]` lines
+          (`cli/generate.py:90-91, 100-113`), but the HTML/markdown
+          output gives the user no indication anything is missing. Fix
+          in two layers:
+          1. **Banner.** In the HTML template
+             (`generator/templates/doc_page.html.j2`, rendered by
+             `generator/html.py::generate_html_page` at line 347), render
+             a visible top-of-page banner when `errors` is non-empty,
+             listing each failed section name and the error class. For
+             markdown, write a `.teacher-output/docs/TEACHER-ERRORS.md`
+             file and add a "Generation errors" note to the top of
+             `overview.md`.
+          2. **Placeholder sections.** For each failed section, append a
+             `Section` to `sections` (before line 341) with a body like
+             "This section failed to generate: {error}. Rerun
+             `teach generate` or increase
+             `CODEBASE_TEACHER_CLI_TIMEOUT`." so the sidebar link appears
+             and the gap is visible in the navigation. Do the same for
+             missing markdown docs.
+
+    **Acceptance criteria:**
+    - Running `uv run teach generate --format html tests/repos/httpbin`
+      completes meaningfully faster than the current 16m baseline
+      (target: under 6m on the same hardware).
+    - When a section deliberately fails (e.g., by setting
+      `CODEBASE_TEACHER_CLI_TIMEOUT=1` to force timeouts), the resulting
+      `index.html` shows (a) a top-of-page error banner and (b) a
+      placeholder section with a sidebar link for every failed section.
+    - `max_concurrent_llm_calls` defaults to 10 and its value is
+      respected by both analyze and generate phases (verifiable by
+      setting it to 1 and observing serialized behavior).
+    - `API_CHUNK_SIZE` is 10; httpbin's 55 endpoints produce 6 chunks,
+      generated concurrently.
+    - All existing tests in `uv run pytest` pass. New tests cover: the
+      shared-semaphore wiring, the failed-section banner rendering, the
+      placeholder-section insertion, and the chunk-size constant.
+
 ## Future CLI Providers
 
 4. [ ] Add Codex CLI provider (`codex`)
