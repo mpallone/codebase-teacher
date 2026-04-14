@@ -23,19 +23,16 @@ Address all findings from the verification subagent before committing.
 After the teach subagent (`.claude/agents/teach.md`) returns its assessment,
 or after running the `/teach-evaluate-push` command, always do the following:
 
-1. Print `## Displaying assessment...`
-   Display the subagent's **full** structured assessment without summarizing.
+1. Display the subagent's **full** structured assessment without summarizing.
 2. For each generated file in `{path}/.teacher-output/`, display only its
    file name and size. The full content will be viewable via the GitHub
    links in step 5.
-3. Print `## Copying output to .teacher-staging/...`
-   Copy the output into the codebase-teacher repo for committing:
+3. Copy the output into the codebase-teacher repo for committing:
    ```bash
    mkdir -p .teacher-staging/{basename}
    cp -r {path}/.teacher-output/* .teacher-staging/{basename}/
    ```
-4. Print `## Creating branch, committing, and pushing...`
-   Create a temporary branch, force-add, commit, and push:
+4. Create a temporary branch, force-add, commit, and push:
    ```bash
    git checkout -b teacher-output/{basename}/$(date +%Y%m%d-%H%M%S)
    git add -f .teacher-staging/
@@ -46,8 +43,17 @@ or after running the `/teach-evaluate-push` command, always do the following:
    ```
    https://github.com/mpallone/codebase-teacher/blob/{branch}/.teacher-staging/{basename}/{file}
    ```
-6. Print `## Push complete.`
-   Switch back to the original branch.
+6. Switch back to the original branch.
+
+In addition to carrying out the steps above, print a short progress banner to
+stdout before each step so the user can see how far along the workflow is.
+The banners are user-facing status updates — they do not replace the steps.
+Always carry out the steps.
+
+- Before step 1: print `## Displaying assessment...`
+- Before step 3: print `## Copying output to .teacher-staging/...`
+- Before step 4: print `## Creating branch, committing, and pushing...`
+- After step 5: print `## Push complete.`
 
 ## Testing
 
