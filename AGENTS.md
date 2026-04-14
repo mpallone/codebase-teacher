@@ -3,10 +3,10 @@
 ## Verification Requirement
 
 After implementing changes, **ask the user** whether to launch the repository's
-evaluation subagent (`.claude/agents/teach.md`) before committing. This
-subagent runs the full `teach scan → analyze → generate` pipeline against a
-test repo and evaluates the output quality. It burns LLM tokens, so the user
-decides when the cost is justified. If approved, the subagent should
+`/teach-evaluate-push` skill (`.claude/commands/teach-evaluate-push.md`) before
+committing. This skill runs the full `teach scan → analyze → generate` pipeline
+against a test repo and evaluates the output quality. It burns LLM tokens, so
+the user decides when the cost is justified. If approved, the skill should
 independently:
 
 1. Read the changed files and confirm the fix matches the task description.
@@ -16,14 +16,14 @@ independently:
    behavior).
 4. Flag any edge cases, regressions, or concerns.
 
-Address all findings from the verification subagent before committing.
+Address all findings from the verification skill before committing.
 
 ## Post-Teach Workflow
 
-After the teach subagent (`.claude/agents/teach.md`) returns its assessment,
-or after running the `/teach-evaluate-push` command, always do the following:
+After the `/teach-evaluate-push` skill returns its assessment, always do the
+following:
 
-1. Display the subagent's **full** structured assessment without summarizing.
+1. Display the skill's **full** structured assessment without summarizing.
 2. For each generated file in `{path}/.teacher-output/`, display only its
    file name and size. The full content will be viewable via the GitHub
    links in step 5.
