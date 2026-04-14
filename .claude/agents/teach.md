@@ -33,6 +33,35 @@ before and after each step:
 2. Record ANALYZE_START_MS (`date +%s%3N`), then run `teach analyze {path}`, then record ANALYZE_END_MS (`date +%s%3N`).
 3. Record GENERATE_START_MS (`date +%s%3N`), then run `teach generate --format {format} {path}`, then record GENERATE_END_MS (`date +%s%3N`).
 
+In addition to running the commands above, print a short progress banner to
+stdout before and after each step so the user can see how far along the
+pipeline is. The banners are user-facing status updates — they do not replace
+the bash commands. Always run the bash commands.
+
+- Before step 1: print `## [Step 1/4] Scanning repository ({path})...`
+- After step 1: print `## [Step 1/4] Scan complete ({formatted scan_duration}).`
+- Before step 2: print `## [Step 2/4] Analyzing codebase...`
+- After step 2: print `## [Step 2/4] Analysis complete ({formatted analyze_duration}).`
+- Before step 3: print `## [Step 3/4] Generating {format} output...`
+- After step 3: print `## [Step 3/4] Generation complete ({formatted generate_duration}).`
+
+**Evidence requirement for "after step" banners (do not skip).** Only print
+an "after step" banner once the bash command for that step has actually
+returned with a zero exit code AND the expected artifacts exist on disk:
+
+- After scan: `{path}/.teacher/teacher.db` exists and is non-empty.
+- After analyze: the `teach analyze` command returned successfully (no
+  separate file to check — the database update is internal).
+- After generate: for `--format html`, `{path}/.teacher-output/index.html`
+  exists. For `--format markdown`, `{path}/.teacher-output/docs/overview.md`
+  exists.
+
+If the command fails, returns a non-zero exit code, or the expected file is
+missing, print a failure banner for that step (e.g., `## [Step 3/4] Generate
+failed — index.html not produced. Stopping.`) and stop. Do not continue to
+later steps. Do not fabricate results. These checks exist because a
+previous run of this agent hallucinated success; do not remove them.
+
 If any step fails, report the error (including timing for any steps that did
 complete) and stop.
 
@@ -54,6 +83,8 @@ units (omit leading zero units, e.g. `7m 59s 480ms` not `0d 0h 7m 59s 480ms`):
 - remaining ms = ms mod 1 000
 
 ## Evaluation
+
+Before starting evaluation, print: `## [Step 4/4] Evaluating generated output...`
 
 After the pipeline completes, evaluate the output based on the chosen format.
 
@@ -105,6 +136,8 @@ Evaluate each output on these criteria:
 - Would a new developer find the architecture doc helpful for onboarding?
 - Are the Mermaid diagrams clear and informative?
 - Is the level of detail appropriate (not too shallow, not too verbose)?
+
+After the evaluation finishes, print: `## [Step 4/4] Evaluation complete.`
 
 ## Output Format
 

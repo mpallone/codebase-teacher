@@ -45,6 +45,16 @@ or after running the `/teach-evaluate-push` command, always do the following:
    ```
 6. Switch back to the original branch.
 
+In addition to carrying out the steps above, print a short progress banner to
+stdout before each step so the user can see how far along the workflow is.
+The banners are user-facing status updates — they do not replace the steps.
+Always carry out the steps.
+
+- Before step 1: print `## Displaying assessment...`
+- Before step 3: print `## Copying output to .teacher-staging/...`
+- Before step 4: print `## Creating branch, committing, and pushing...`
+- After step 5: print `## Push complete.`
+
 ## Testing
 
 - Always run `uv run pytest` to verify all tests pass before committing.

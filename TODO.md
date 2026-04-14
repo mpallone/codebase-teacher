@@ -177,7 +177,7 @@
 
 ## Progress Status During teach-evaluate-push
 
-19. [ ] Add progress status output to the `/teach-evaluate-push` skill and `/agents/teach`
+19. [x] Add progress status output to the `/teach-evaluate-push` skill and `/agents/teach`
     subagent so the user can see how far along the pipeline is while it runs.
     Currently the workflow is long-running and produces no visible output until the
     very end (final timing summary and assessment). The user has no indication of
@@ -190,27 +190,27 @@
     and a short completion note when it finishes (including elapsed time for that step).
 
     - **teach-evaluate-push skill** (`teach-evaluate-push.md`):
-      - [ ] On entry: print `## Starting teach-evaluate-push pipeline` with the
+      - [x] On entry: print `## Starting teach-evaluate-push pipeline` with the
             target path and format.
-      - [ ] Before launching subagent: print `## [1/3] Launching teach subagent...`
-      - [ ] After subagent returns: print `## [2/3] Teach subagent complete ({duration}s). Starting post-teach workflow...`
-      - [ ] After post-teach workflow completes: print `## [3/3] Post-teach workflow complete ({duration}s).`
+      - [x] Before launching subagent: print `## [1/3] Launching teach subagent...`
+      - [x] After subagent returns: print `## [2/3] Teach subagent complete ({duration}s). Starting post-teach workflow...`
+      - [x] After post-teach workflow completes: print `## [3/3] Post-teach workflow complete ({duration}s).`
 
     - **teach subagent** (`agents/teach.md`):
-      - [ ] Before scan: print `## [Step 1/4] Scanning repository ({path})...`
-      - [ ] After scan: print `## [Step 1/4] Scan complete ({scan_duration}s).`
-      - [ ] Before analyze: print `## [Step 2/4] Analyzing codebase...`
-      - [ ] After analyze: print `## [Step 2/4] Analysis complete ({analyze_duration}s).`
-      - [ ] Before generate: print `## [Step 3/4] Generating {format} output...`
-      - [ ] After generate: print `## [Step 3/4] Generation complete ({generate_duration}s).`
-      - [ ] Before evaluation: print `## [Step 4/4] Evaluating generated output...`
-      - [ ] After evaluation: print `## [Step 4/4] Evaluation complete.`
+      - [x] Before scan: print `## [Step 1/4] Scanning repository ({path})...`
+      - [x] After scan: print `## [Step 1/4] Scan complete ({scan_duration}s).`
+      - [x] Before analyze: print `## [Step 2/4] Analyzing codebase...`
+      - [x] After analyze: print `## [Step 2/4] Analysis complete ({analyze_duration}s).`
+      - [x] Before generate: print `## [Step 3/4] Generating {format} output...`
+      - [x] After generate: print `## [Step 3/4] Generation complete ({generate_duration}s).`
+      - [x] Before evaluation: print `## [Step 4/4] Evaluating generated output...`
+      - [x] After evaluation: print `## [Step 4/4] Evaluation complete.`
 
     - **Post-Teach Workflow** (AGENTS.md):
-      - [ ] Before displaying assessment: print `## Displaying assessment...`
-      - [ ] Before staging: print `## Copying output to .teacher-staging/...`
-      - [ ] Before git operations: print `## Creating branch, committing, and pushing...`
-      - [ ] After push: print `## Push complete. Generating links...`
+      - [x] Before displaying assessment: print `## Displaying assessment...`
+      - [x] Before staging: print `## Copying output to .teacher-staging/...`
+      - [x] Before git operations: print `## Creating branch, committing, and pushing...`
+      - [x] After push: print `## Push complete. Generating links...`
 
 ## Real Repo Testing
 
