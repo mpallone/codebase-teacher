@@ -145,6 +145,18 @@ Record `ANALYZE_START_MS` (`date +%s%3N`), then run:
 teach analyze {path}
 ```
 
+**Run this in the foreground** — do not pipe to `tail`, do not use
+`run_in_background`, and do not rely on shell tricks that would let
+the Bash tool treat it as a background task. This command can take
+many minutes; the harness must stream its output directly so the
+final `Record ..._END_MS` timestamp reflects actual completion. If
+the Bash tool nonetheless returns a task id instead of inline output,
+treat that as a failure-mode recovery: wait for the step's expected
+artifact to land (`{path}/.teacher/teacher.db` for analyze,
+`{path}/.teacher-output/<format-specific file>` for generate) before
+recording `..._END_MS`, and verify the command's exit status from
+the task output file.
+
 Record `ANALYZE_END_MS` (`date +%s%3N`).
 
 **Verify:** the command returned a zero exit code. The database update
@@ -162,6 +174,18 @@ Record `GENERATE_START_MS` (`date +%s%3N`), then run:
 ```bash
 teach generate --format {format} {path}
 ```
+
+**Run this in the foreground** — do not pipe to `tail`, do not use
+`run_in_background`, and do not rely on shell tricks that would let
+the Bash tool treat it as a background task. This command can take
+many minutes; the harness must stream its output directly so the
+final `Record ..._END_MS` timestamp reflects actual completion. If
+the Bash tool nonetheless returns a task id instead of inline output,
+treat that as a failure-mode recovery: wait for the step's expected
+artifact to land (`{path}/.teacher/teacher.db` for analyze,
+`{path}/.teacher-output/<format-specific file>` for generate) before
+recording `..._END_MS`, and verify the command's exit status from
+the task output file.
 
 Record `GENERATE_END_MS` (`date +%s%3N`).
 
