@@ -6,15 +6,20 @@ Produces markdown documentation from analysis results using LLM + Jinja2 templat
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from rich.console import Console
 
 from codebase_teacher.core.exceptions import LLMError
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
+
+console = Console()
 
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -101,7 +106,11 @@ async def generate_architecture_doc(
     return store.write("docs", "architecture.md", content)
 
 
-API_CHUNK_SIZE = 20
+API_CHUNK_SIZE = int(os.environ.get("CODEBASE_TEACHER_API_CHUNK_SIZE", "10"))
+
+# Pattern for counting `### ` headings the LLM is supposed to produce per
+# endpoint. Used for per-chunk completeness validation.
+_H3_PATTERN = re.compile(r"^###\s", re.MULTILINE)
 
 
 async def generate_api_doc(
@@ -127,19 +136,13 @@ async def generate_api_doc(
     if len(analysis.api_endpoints) > API_CHUNK_SIZE:
         body = await _generate_api_doc_chunked(provider, analysis)
     else:
-        prompt = PROMPTS["generate_api_doc"]
-        messages = [
-            Message(role="system", content=prompt.format_system()),
-            Message(
-                role="user",
-                content=prompt.format_user(
-                    apis=_format_apis(analysis.api_endpoints),
-                    data_flows=_format_data_flows(analysis.data_flows),
-                ),
-            ),
-        ]
-        response = await provider.complete(messages)
-        body = response.content
+        body = await _generate_api_chunk_with_retry(
+            provider,
+            analysis.api_endpoints,
+            chunk_index=1,
+            chunk_total=1,
+            data_flows_formatted=_format_data_flows(analysis.data_flows),
+        )
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
@@ -160,23 +163,87 @@ async def _generate_api_doc_chunked(
     ]
     data_flows = _format_data_flows(analysis.data_flows)
 
+    console.print(
+        f"  API Reference: {len(endpoints)} endpoints in {len(chunks)} chunks"
+    )
+
     parts: list[str] = []
     for idx, chunk in enumerate(chunks, 1):
-        prompt = PROMPTS["generate_api_doc"]
-        messages = [
+        part = await _generate_api_chunk_with_retry(
+            provider,
+            chunk,
+            chunk_index=idx,
+            chunk_total=len(chunks),
+            data_flows_formatted=data_flows,
+        )
+        parts.append(part)
+
+    return "\n\n---\n\n".join(parts)
+
+
+async def _generate_api_chunk_with_retry(
+    provider: LLMProvider,
+    chunk: list,
+    chunk_index: int,
+    chunk_total: int,
+    data_flows_formatted: str,
+) -> str:
+    """Call the LLM for one API chunk, retry once if the output is under-produced.
+
+    A response is "under-produced" if it is empty or contains fewer `### `
+    headings than half of the chunk's endpoint count. Prints per-chunk
+    progress/warnings to the rich console so the user can see silent failures
+    instead of losing endpoints to the void.
+    """
+    prompt = PROMPTS["generate_api_doc"]
+    apis_formatted = _format_apis(chunk)
+    expected = len(chunk)
+    threshold = max(1, expected // 2)
+
+    def _build_messages() -> list[Message]:
+        return [
             Message(role="system", content=prompt.format_system()),
             Message(
                 role="user",
                 content=prompt.format_user(
-                    apis=_format_apis(chunk),
-                    data_flows=data_flows,
+                    apis=apis_formatted,
+                    data_flows=data_flows_formatted,
+                    chunk_index=chunk_index,
+                    chunk_total=chunk_total,
+                    endpoint_count=expected,
                 ),
             ),
         ]
-        response = await provider.complete(messages)
-        parts.append(response.content)
 
-    return "\n\n---\n\n".join(parts)
+    response = await provider.complete(_build_messages())
+    content = response.content or ""
+    heading_count = len(_H3_PATTERN.findall(content))
+
+    if heading_count < threshold:
+        console.print(
+            f"  [yellow]API chunk {chunk_index}/{chunk_total} "
+            f"under-produced ({heading_count}/{expected} endpoints), "
+            f"retrying[/yellow]"
+        )
+        retry = await provider.complete(_build_messages())
+        retry_content = retry.content or ""
+        retry_headings = len(_H3_PATTERN.findall(retry_content))
+        if retry_headings > heading_count:
+            content = retry_content
+            heading_count = retry_headings
+
+    if heading_count < threshold:
+        console.print(
+            f"  [red]API chunk {chunk_index}/{chunk_total} produced only "
+            f"{heading_count}/{expected} endpoints after retry[/red]"
+        )
+    else:
+        console.print(
+            f"  [dim]API chunk {chunk_index}/{chunk_total}: "
+            f"{heading_count} endpoints documented[/dim]"
+        )
+
+    return content
 
 
 async def generate_infra_doc(

@@ -6,6 +6,7 @@ import pytest
 
 from codebase_teacher.generator.html import (
     _convert_mermaid_blocks,
+    _generate_api_section_chunked,
     _markdown_to_html,
     _sanitize_mermaid,
     _slugify,
@@ -305,6 +306,101 @@ async def test_html_handles_empty_analysis(mock_provider, tmp_path):
         assert "No infrastructure components were detected" in content
     finally:
         db.close()
+
+
+class _ScriptedProvider:
+    """Test helper: returns one scripted response per call."""
+
+    def __init__(self, responses: list[str]):
+        self._responses = list(responses)
+        self._calls: list[list] = []
+
+    async def complete(self, messages, temperature=0.3, max_tokens=None, response_format=None):
+        from codebase_teacher.llm.provider import LLMResponse, TokenUsage
+
+        self._calls.append(messages)
+        content = self._responses.pop(0) if self._responses else ""
+        return LLMResponse(
+            content=content,
+            usage=TokenUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+            model="scripted",
+        )
+
+    @property
+    def context_window(self) -> int:
+        return 100_000
+
+    @property
+    def max_tokens(self) -> int:
+        return 16384
+
+    @property
+    def model_name(self) -> str:
+        return "scripted"
+
+
+def _chunk_response(start: int, count: int) -> str:
+    return "\n".join(f"### GET /api/item-{start + i}\nDetail.\n" for i in range(count))
+
+
+@pytest.mark.asyncio
+async def test_html_api_section_preserves_all_endpoints_across_chunks(tmp_path):
+    """Every endpoint in every chunk must appear in the assembled HTML section."""
+    from codebase_teacher.generator.docs import API_CHUNK_SIZE
+
+    total = API_CHUNK_SIZE * 3
+    endpoints = [
+        APIEndpoint(
+            method="GET",
+            path=f"/api/item-{i}",
+            handler=f"get_item_{i}",
+            file="routes.py",
+            description=f"Get item {i}",
+        )
+        for i in range(total)
+    ]
+    analysis = AnalysisResult(project_summary="t", api_endpoints=endpoints)
+
+    scripted = [_chunk_response(i, API_CHUNK_SIZE) for i in range(0, total, API_CHUNK_SIZE)]
+    provider = _ScriptedProvider(scripted)
+
+    section = await _generate_api_section_chunked(provider, analysis, "No data flows.")
+
+    assert section.slug == "api-reference"
+    for i in range(total):
+        assert f"/api/item-{i}" in section.html_content
+
+
+@pytest.mark.asyncio
+async def test_html_api_section_retries_underproduced_chunk(tmp_path):
+    """Empty first response on a chunk should trigger one retry in the HTML path."""
+    from codebase_teacher.generator.docs import API_CHUNK_SIZE
+
+    total = API_CHUNK_SIZE * 2
+    endpoints = [
+        APIEndpoint(
+            method="GET",
+            path=f"/api/item-{i}",
+            handler=f"get_item_{i}",
+            file="routes.py",
+            description=f"Get item {i}",
+        )
+        for i in range(total)
+    ]
+    analysis = AnalysisResult(project_summary="t", api_endpoints=endpoints)
+
+    scripted = [
+        _chunk_response(0, API_CHUNK_SIZE),
+        "",  # chunk 2 under-produced
+        _chunk_response(API_CHUNK_SIZE, API_CHUNK_SIZE),  # retry
+    ]
+    provider = _ScriptedProvider(scripted)
+
+    section = await _generate_api_section_chunked(provider, analysis, "No data flows.")
+
+    assert len(provider._calls) == 3
+    for i in range(total):
+        assert f"/api/item-{i}" in section.html_content
 
 
 @pytest.mark.asyncio

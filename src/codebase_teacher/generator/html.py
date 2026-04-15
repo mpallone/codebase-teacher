@@ -23,6 +23,8 @@ from codebase_teacher.generator.docs import (
     _format_data_flows,
     _format_infrastructure,
     _format_module_summaries,
+    _generate_api_chunk_with_retry,
+    console,
 )
 from codebase_teacher.llm.prompt_registry import PROMPTS
 from codebase_teacher.llm.provider import LLMProvider, Message
@@ -125,21 +127,20 @@ async def _generate_api_section_chunked(
         for i in range(0, len(endpoints), API_CHUNK_SIZE)
     ]
 
+    console.print(
+        f"  API Reference: {len(endpoints)} endpoints in {len(chunks)} chunks"
+    )
+
     html_parts: list[str] = []
-    for chunk in chunks:
-        prompt = PROMPTS["generate_api_doc"]
-        messages = [
-            Message(role="system", content=prompt.format_system()),
-            Message(
-                role="user",
-                content=prompt.format_user(
-                    apis=_format_apis(chunk),
-                    data_flows=data_flows_formatted,
-                ),
-            ),
-        ]
-        response = await provider.complete(messages)
-        html_parts.append(_markdown_to_html(response.content))
+    for idx, chunk in enumerate(chunks, 1):
+        markdown_content = await _generate_api_chunk_with_retry(
+            provider,
+            chunk,
+            chunk_index=idx,
+            chunk_total=len(chunks),
+            data_flows_formatted=data_flows_formatted,
+        )
+        html_parts.append(_markdown_to_html(markdown_content))
 
     return Section(
         title="API Reference",
@@ -310,15 +311,28 @@ async def generate_html_page(
             ))
             continue
 
-        # Chunk API doc generation for large endpoint sets
-        if (
-            prompt_name == "generate_api_doc"
-            and len(analysis.api_endpoints) > API_CHUNK_SIZE
-        ):
+        # API doc generation routes through the retry/validation helper,
+        # chunking automatically when there are more endpoints than
+        # API_CHUNK_SIZE.
+        if prompt_name == "generate_api_doc":
             try:
-                section = await _generate_api_section_chunked(
-                    provider, analysis, data_flows,
-                )
+                if len(analysis.api_endpoints) > API_CHUNK_SIZE:
+                    section = await _generate_api_section_chunked(
+                        provider, analysis, data_flows,
+                    )
+                else:
+                    markdown_content = await _generate_api_chunk_with_retry(
+                        provider,
+                        analysis.api_endpoints,
+                        chunk_index=1,
+                        chunk_total=1,
+                        data_flows_formatted=data_flows,
+                    )
+                    section = Section(
+                        title=title,
+                        slug=_slugify(title),
+                        html_content=_markdown_to_html(markdown_content),
+                    )
                 sections.append(section)
             except LLMError as e:
                 errors.append((title, e))
