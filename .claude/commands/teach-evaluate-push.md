@@ -145,17 +145,37 @@ Record `ANALYZE_START_MS` (`date +%s%3N`), then run:
 teach analyze {path}
 ```
 
-**Run this in the foreground** — do not pipe to `tail`, do not use
-`run_in_background`, and do not rely on shell tricks that would let
-the Bash tool treat it as a background task. This command can take
-many minutes; the harness must stream its output directly so the
-final `Record ..._END_MS` timestamp reflects actual completion. If
-the Bash tool nonetheless returns a task id instead of inline output,
-treat that as a failure-mode recovery: wait for the step's expected
-artifact to land (`{path}/.teacher/teacher.db` for analyze,
-`{path}/.teacher-output/<format-specific file>` for generate) before
-recording `..._END_MS`, and verify the command's exit status from
-the task output file.
+**Prefer the foreground.** Do not pipe to `tail` and do not set
+`run_in_background=true`. The Bash tool will auto-background any run
+exceeding ~10 min; treat that as *normal*, not as a failure, and fall
+through to the polling protocol below.
+
+**Polling protocol (when the Bash tool returns a task id):**
+
+1. Poll with a **single Bash `until`-loop** — *not* the Monitor tool.
+   Monitor is MCP-backed and can disappear mid-wait, and when it does
+   the background child is reaped. Bash is in-process and survives
+   MCP drops:
+   ```bash
+   until [ -s {path}/.teacher/teacher.db ] \
+         || [ -f {task_output_dir}/{task_id}.exit ]; do
+     sleep 10
+   done
+   ```
+2. **Check artifact first, exit file second.** If the artifact exists
+   and is non-empty, treat it as success. Only if the artifact is
+   missing AND the `.exit` file has appeared do you declare early
+   termination.
+3. **On detected early termination, retry exactly once.** Print
+   `## [2/5] Analyze: detected early termination, retrying once.`,
+   re-run the same command, and poll again. A second failure stops
+   the pipeline per Rule 1 (print the failure banner; do not retry
+   further).
+4. Record `ANALYZE_END_MS` only after the successful run's artifact
+   lands (not at the first attempt's kill time).
+
+Detaching the child via `setsid`/`nohup` is **not** reliable under the
+Bash tool and is not used.
 
 Record `ANALYZE_END_MS` (`date +%s%3N`).
 
@@ -175,17 +195,43 @@ Record `GENERATE_START_MS` (`date +%s%3N`), then run:
 teach generate --format {format} {path}
 ```
 
-**Run this in the foreground** — do not pipe to `tail`, do not use
-`run_in_background`, and do not rely on shell tricks that would let
-the Bash tool treat it as a background task. This command can take
-many minutes; the harness must stream its output directly so the
-final `Record ..._END_MS` timestamp reflects actual completion. If
-the Bash tool nonetheless returns a task id instead of inline output,
-treat that as a failure-mode recovery: wait for the step's expected
-artifact to land (`{path}/.teacher/teacher.db` for analyze,
-`{path}/.teacher-output/<format-specific file>` for generate) before
-recording `..._END_MS`, and verify the command's exit status from
-the task output file.
+**Prefer the foreground.** Do not pipe to `tail` and do not set
+`run_in_background=true`. The Bash tool will auto-background any run
+exceeding ~10 min (generate on a mid-sized repo routinely takes 1–2
+hours); treat that as *normal*, not as a failure, and fall through
+to the polling protocol below. Note that `teach generate` has **no
+checkpointing** — `generator/html.py` assembles all sections in memory
+and writes the output file exactly once at the end, so a mid-run kill
+yields no usable artifact and forces a full re-run.
+
+**Polling protocol (when the Bash tool returns a task id):**
+
+1. Poll with a **single Bash `until`-loop** — *not* the Monitor tool.
+   Monitor is MCP-backed and can disappear mid-wait, and when it does
+   the background child is reaped. Bash is in-process and survives
+   MCP drops:
+   ```bash
+   # {artifact} is the format-specific file from the Verify section below
+   until [ -s {artifact} ] \
+         || [ -f {task_output_dir}/{task_id}.exit ]; do
+     sleep 10
+   done
+   ```
+2. **Check artifact first, exit file second.** If the artifact exists
+   and is non-empty, treat it as success. Only if the artifact is
+   missing AND the `.exit` file has appeared do you declare early
+   termination. Use `-s` (non-empty), not `-e` — a zero-byte file
+   must not be treated as success.
+3. **On detected early termination, retry exactly once.** Print
+   `## [3/5] Generate: detected early termination, retrying once.`,
+   re-run `teach generate --format {format} {path}`, and poll again.
+   A second failure stops the pipeline per Rule 1 (print the failure
+   banner; do not retry further).
+4. Record `GENERATE_END_MS` only after the successful run's artifact
+   lands (not at the first attempt's kill time).
+
+Detaching the child via `setsid`/`nohup` is **not** reliable under the
+Bash tool and is not used.
 
 Record `GENERATE_END_MS` (`date +%s%3N`).
 
