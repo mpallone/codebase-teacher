@@ -1,4 +1,0 @@
-[submodule "tests/repos/httpbin"]
-	path = tests/repos/httpbin
-	url = https://github.com/postmanlabs/httpbin.git
-	ignore = dirty
