@@ -60,6 +60,46 @@ completions and fabricated evaluation numbers. Do not remove them.
 
 ---
 
+## [0/5] Ensure target repo is populated
+
+Print: `## [0/5] Checking target repo ({path})...`
+
+Test whether `{path}` exists and is non-empty:
+
+```bash
+[ -d {path} ] && [ -n "$(ls -A {path} 2>/dev/null)" ]
+```
+
+**If `{path}` is missing or empty:**
+
+Fixtures under `tests/repos/` are managed as git submodules in this
+repo (see `.gitmodules`). Recover by initializing the submodule rather
+than guessing an upstream URL.
+
+Print: `## [0/5] Target is empty — attempting submodule init...`
+
+Then run:
+
+```bash
+git submodule update --init --recursive -- {path}
+```
+
+Re-check that `{path}` is now non-empty. If it is still missing or
+empty (for example, `{path}` is not a registered submodule), print
+`## [0/5] Failed to populate {path}. Stopping.` and stop. Do **not**
+fall back to an arbitrary `git clone` — the skill must not pull
+unknown URLs on the user's behalf.
+
+Print: `## [0/5] Target repo populated.`
+
+**If `{path}` was already populated:**
+
+Print: `## [0/5] Target repo already populated.`
+
+This step is bookkeeping and is intentionally omitted from the
+"Execution Time" summary at the bottom of the skill; any time spent
+here is still captured by the total wall-time row.
+
 ## [1/5] Scan
 
 Print: `## [1/5] Scanning repository ({path})...`
