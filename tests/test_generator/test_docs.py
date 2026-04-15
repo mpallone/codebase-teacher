@@ -152,6 +152,174 @@ async def test_generate_api_doc_chunks_many_endpoints(mock_provider, tmp_path):
         db.close()
 
 
+class _ScriptedProvider:
+    """Test helper: returns one scripted response per call.
+
+    After the script is exhausted, returns an empty string (simulating a
+    silent LLM failure).
+    """
+
+    def __init__(self, responses: list[str]):
+        self._responses = list(responses)
+        self._calls: list[list] = []
+
+    async def complete(self, messages, temperature=0.3, max_tokens=None, response_format=None):
+        from codebase_teacher.llm.provider import LLMResponse, TokenUsage
+
+        self._calls.append(messages)
+        content = self._responses.pop(0) if self._responses else ""
+        return LLMResponse(
+            content=content,
+            usage=TokenUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+            model="scripted",
+        )
+
+    @property
+    def context_window(self) -> int:
+        return 100_000
+
+    @property
+    def max_tokens(self) -> int:
+        return 16384
+
+    @property
+    def model_name(self) -> str:
+        return "scripted"
+
+
+def _chunk_response(start: int, count: int) -> str:
+    """Build a mock LLM response documenting `count` endpoints starting at `start`."""
+    return "\n".join(f"### GET /api/item-{start + i}\nDetail.\n" for i in range(count))
+
+
+@pytest.mark.asyncio
+async def test_generate_api_doc_preserves_all_endpoints(tmp_path):
+    """Every endpoint in every chunk must appear in the generated markdown."""
+    store, db = _make_store(tmp_path)
+    try:
+        total = API_CHUNK_SIZE * 3  # force at least 3 chunks
+        endpoints = [
+            APIEndpoint(
+                method="GET",
+                path=f"/api/item-{i}",
+                handler=f"get_item_{i}",
+                file="routes.py",
+                description=f"Get item {i}",
+            )
+            for i in range(total)
+        ]
+        analysis = AnalysisResult(project_summary="t", api_endpoints=endpoints)
+
+        # One well-formed response per chunk, covering all endpoints in order.
+        scripted = [
+            _chunk_response(i, API_CHUNK_SIZE)
+            for i in range(0, total, API_CHUNK_SIZE)
+        ]
+        provider = _ScriptedProvider(scripted)
+
+        path = await generate_api_doc(provider, analysis, store)
+        content = path.read_text()
+
+        for i in range(total):
+            assert f"/api/item-{i}" in content, f"missing /api/item-{i}"
+        # No extra retries when chunks are well-formed.
+        assert len(provider._calls) == total // API_CHUNK_SIZE
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_api_doc_retries_underproduced_chunk(tmp_path):
+    """An empty first attempt on a chunk should trigger one retry."""
+    store, db = _make_store(tmp_path)
+    try:
+        total = API_CHUNK_SIZE * 2  # 2 chunks
+        endpoints = [
+            APIEndpoint(
+                method="GET",
+                path=f"/api/item-{i}",
+                handler=f"get_item_{i}",
+                file="routes.py",
+                description=f"Get item {i}",
+            )
+            for i in range(total)
+        ]
+        analysis = AnalysisResult(project_summary="t", api_endpoints=endpoints)
+
+        # Chunk 1: good. Chunk 2: empty (triggers retry), then good.
+        scripted = [
+            _chunk_response(0, API_CHUNK_SIZE),
+            "",  # chunk 2 first attempt: under-produced
+            _chunk_response(API_CHUNK_SIZE, API_CHUNK_SIZE),  # retry
+        ]
+        provider = _ScriptedProvider(scripted)
+
+        path = await generate_api_doc(provider, analysis, store)
+        content = path.read_text()
+
+        assert len(provider._calls) == 3, "expected 1 retry for the empty chunk"
+        for i in range(total):
+            assert f"/api/item-{i}" in content
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_api_doc_survives_persistent_underproduction(tmp_path, capsys):
+    """If both attempts on a chunk are empty, the other chunks still make it in."""
+    store, db = _make_store(tmp_path)
+    try:
+        total = API_CHUNK_SIZE * 2
+        endpoints = [
+            APIEndpoint(
+                method="GET",
+                path=f"/api/item-{i}",
+                handler=f"get_item_{i}",
+                file="routes.py",
+                description=f"Get item {i}",
+            )
+            for i in range(total)
+        ]
+        analysis = AnalysisResult(project_summary="t", api_endpoints=endpoints)
+
+        # Chunk 1 succeeds, chunk 2 fails on both attempts.
+        scripted = [
+            _chunk_response(0, API_CHUNK_SIZE),
+            "",
+            "",
+        ]
+        provider = _ScriptedProvider(scripted)
+
+        path = await generate_api_doc(provider, analysis, store)
+        content = path.read_text()
+
+        # Chunk 1 endpoints are present; chunk 2 endpoints are lost but the
+        # generation did not crash, and the user saw a red warning.
+        for i in range(API_CHUNK_SIZE):
+            assert f"/api/item-{i}" in content
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "under-produced" in combined or "produced only" in combined
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_api_chunk_size_env_override(monkeypatch, tmp_path):
+    """Setting CODEBASE_TEACHER_API_CHUNK_SIZE should change the chunk count."""
+    import importlib
+    import codebase_teacher.generator.docs as docs_mod
+
+    monkeypatch.setenv("CODEBASE_TEACHER_API_CHUNK_SIZE", "3")
+    importlib.reload(docs_mod)
+    try:
+        assert docs_mod.API_CHUNK_SIZE == 3
+    finally:
+        # Restore the normal default so other tests aren't affected.
+        monkeypatch.delenv("CODEBASE_TEACHER_API_CHUNK_SIZE", raising=False)
+        importlib.reload(docs_mod)
+
+
 @pytest.mark.asyncio
 async def test_generate_all_docs_includes_overview_first(mock_provider, tmp_path):
     store, db = _make_store(tmp_path)

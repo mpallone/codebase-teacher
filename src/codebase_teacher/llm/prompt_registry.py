@@ -199,7 +199,10 @@ PROMPTS: dict[str, PromptTemplate] = {
             "Be thorough, include examples, and explain the data model."
         ),
         user=(
-            "Generate API reference documentation.\n\n"
+            "Generate API reference documentation for the {endpoint_count} endpoints "
+            "listed below. This is chunk {chunk_index} of {chunk_total}; you must "
+            "produce a dedicated `### METHOD /path` section for EVERY endpoint in the "
+            "list, in the order given. Do not summarize or omit any endpoint.\n\n"
             "APIs found:\n{apis}\n\n"
             "Data flows:\n{data_flows}\n\n"
             "Include for each endpoint:\n"

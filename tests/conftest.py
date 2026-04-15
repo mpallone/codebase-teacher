@@ -103,6 +103,13 @@ def mock_provider():
                 "```mermaid\ngraph TD\n    A[Client] --> B[Flask API]\n    "
                 "B --> C[PostgreSQL]\n    B --> D[Celery/Redis]\n```"
             ),
+            # Matches the `generate_api_doc` prompt. Return a stub with many
+            # `### ` headings so the per-chunk under-production check
+            # (`_generate_api_chunk_with_retry`) is satisfied across chunk
+            # sizes used in tests.
+            "generate api reference documentation": "\n".join(
+                f"### GET /mock-{i}\nMock endpoint {i}.\n" for i in range(30)
+            ),
         }
     )
 
