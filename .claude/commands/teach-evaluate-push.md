@@ -394,6 +394,16 @@ single source of truth for staging, branch creation, commit, push, and
 the GitHub link display. Internal banners for that workflow are
 specified there.
 
+The workflow branches on `{format}`:
+
+- `markdown` → archives the six generated files to a new
+  `teacher-output/{basename}/{timestamp}` branch.
+- `html` → publishes the single `index.html` to the `html-test-host`
+  branch (which GitHub Pages serves). No archival branch is created.
+
+Pick the correct branch of the workflow based on `{format}` and execute
+it fully before recording `WORKFLOW_END_MS`.
+
 Record `WORKFLOW_END_MS` (`date +%s%3N`).
 
 Print: `## [5/5] Post-teach workflow complete ({formatted workflow_duration}).`

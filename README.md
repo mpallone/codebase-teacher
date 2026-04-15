@@ -227,6 +227,33 @@ Generating diagrams...
 Generated 6 files!
 ```
 
+## Hosted HTML reports
+
+This repo hosts the most recent HTML report on the `html-test-host`
+branch via GitHub Pages.
+
+- Running `/teach-evaluate-push {path} html` generates
+  `{path}/.teacher-output/index.html` and publishes it to
+  `html-test-host/index.html`, overwriting the previous run.
+- Only the tip of `html-test-host` is served; there is no per-run or
+  per-target history. If you need archival, run with `markdown` format
+  instead — that path pushes to a `teacher-output/{basename}/{ts}`
+  branch as before.
+- `html-test-host` also contains a `.nojekyll` marker so Pages serves
+  files literally (no Jekyll processing).
+
+### Enabling GitHub Pages (one-time)
+
+In the repo's GitHub settings, configure Pages to build from branch
+`html-test-host` at path `/ (root)`. Once enabled, the hosted URL is:
+
+```
+https://mpallone.github.io/codebase-teacher/
+```
+
+Until Pages is enabled, pushes to `html-test-host` still succeed but
+the URL will 404.
+
 ## Development
 
 ```bash
