@@ -250,6 +250,10 @@
 18. [ ] Fix mermaid diagram rendering on mobile. Diagrams break or render incorrectly
     on device rotation. Reproduce using browser dev tools on laptop to simulate mobile
     device rotation, grab the console logs, feed them to Claude, and iterate until fixed.
+31. [ ] Bug: zooming in/out on a mermaid diagram crashes the page. Will probably need to
+    debug in a PC browser. May be the same root cause as item #18 (mermaid diagrams
+    breaking on mobile device rotation) — both involve mermaid misbehaving when the
+    viewport scale changes.
 
 ## Deeper Analysis
 
