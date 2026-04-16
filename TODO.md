@@ -225,7 +225,7 @@
     scanner hints when the LLM returns nothing, and (c) adding a filesystem fallback in
     `cli/analyze.py` that scans root-level files through the existing file classifier so
     Dockerfiles always reach the LLM even if `teach scan` wasn't run.
-11. [ ] Add fastapi-realworld-example-app as tier 2 test repo
+11. [x] Add fastapi-realworld-example-app as tier 2 test repo
 12. [ ] Add spring-petclinic (Java) as tier 3 test repo
 13. [ ] Add a small Terraform repo to exercise HCL parsing
 14. [ ] Once confidence in the tool is established, externalize or remove the test repo

@@ -2,3 +2,7 @@
 	path = tests/repos/httpbin
 	url = https://github.com/postmanlabs/httpbin.git
 	ignore = dirty
+[submodule "tests/repos/fastapi-realworld-example-app"]
+	path = tests/repos/fastapi-realworld-example-app
+	url = https://github.com/nsidnev/fastapi-realworld-example-app.git
+	ignore = dirty
