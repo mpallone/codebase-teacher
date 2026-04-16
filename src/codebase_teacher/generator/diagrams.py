@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from codebase_teacher.core.exceptions import LLMError
-from codebase_teacher.llm.provider import LLMProvider, Message
+from codebase_teacher.llm.provider import LLMProvider, Message, complete_with_retry
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
 
@@ -38,7 +38,9 @@ async def generate_architecture_diagram(
         ),
     ]
 
-    response = await provider.complete(messages)
+    response = await complete_with_retry(
+        provider, messages, label="Architecture Diagram"
+    )
     mermaid_code = _clean_mermaid(response.content)
 
     content = f"# Architecture Diagram\n\n```mermaid\n{mermaid_code}\n```\n"
@@ -89,7 +91,9 @@ async def generate_data_flow_diagram(
         ),
     ]
 
-    response = await provider.complete(messages)
+    response = await complete_with_retry(
+        provider, messages, label="Data Flow Diagram"
+    )
     mermaid_code = _clean_mermaid(response.content)
 
     content = f"# Data Flow Diagram\n\n```mermaid\n{mermaid_code}\n```\n"
