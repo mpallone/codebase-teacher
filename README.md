@@ -236,9 +236,8 @@ branch via GitHub Pages.
   `{path}/.teacher-output/index.html` and publishes it to
   `html-test-host/index.html`, overwriting the previous run.
 - Only the tip of `html-test-host` is served; there is no per-run or
-  per-target history. If you need archival, run with `markdown` format
-  instead — that path pushes to a `teacher-output/{basename}/{ts}`
-  branch as before.
+  per-target history. The `markdown` format writes results to
+  `{path}/.teacher-output/` locally and does not push anywhere.
 - `html-test-host` also contains a `.nojekyll` marker so Pages serves
   files literally (no Jekyll processing).
 
