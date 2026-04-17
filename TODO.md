@@ -254,6 +254,20 @@
     debug in a PC browser. May be the same root cause as item #18 (mermaid diagrams
     breaking on mobile device rotation) — both involve mermaid misbehaving when the
     viewport scale changes.
+32. [ ] Bug: scanner infra detection uses raw-text substring matching on dependency
+    files, producing false positives for any keyword that is a substring of another
+    package name. In `src/codebase_teacher/scanner/dependency.py:164-167`,
+    `_detect_infra_hints` does `if keyword in content` against the whole dependency
+    file text. `pypika` (a SQL query builder) contains `pika`, so any project
+    depending on PyPika gets flagged as RabbitMQ. Reproducible against
+    `tests/repos/fastapi-realworld-example-app`: `pika` is not imported anywhere,
+    not in `pyproject.toml`, not in `poetry.lock`, but infra output still lists
+    `RabbitMQ (via pika)`. The false positive then propagates through `teach analyze`
+    into the generated `infrastructure.md` / HTML report (the LLM correctly caveats
+    "no publish/consume logic visible" but still documents RabbitMQ as a component).
+    Fix: parse the dependency file first (the parsers already exist in
+    `_PARSERS`), then match `_INFRA_KEYWORDS` against the extracted package-name
+    list with exact or normalized equality instead of substring search on raw text.
 
 ## Deeper Analysis
 
