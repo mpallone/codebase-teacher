@@ -6,3 +6,7 @@
 	path = tests/repos/fastapi-realworld-example-app
 	url = https://github.com/nsidnev/fastapi-realworld-example-app.git
 	ignore = dirty
+[submodule "tests/repos/spring-petclinic"]
+	path = tests/repos/spring-petclinic
+	url = https://github.com/spring-projects/spring-petclinic.git
+	ignore = dirty
