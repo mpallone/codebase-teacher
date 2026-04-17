@@ -15,7 +15,7 @@ from rich.console import Console
 
 from codebase_teacher.core.exceptions import LLMError
 from codebase_teacher.llm.prompt_registry import PROMPTS
-from codebase_teacher.llm.provider import LLMProvider, Message
+from codebase_teacher.llm.provider import LLMProvider, Message, complete_with_retry
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
 
@@ -61,7 +61,7 @@ async def generate_overview_doc(
         ),
     ]
 
-    response = await provider.complete(messages)
+    response = await complete_with_retry(provider, messages, label="Start Here")
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
@@ -94,7 +94,9 @@ async def generate_architecture_doc(
         ),
     ]
 
-    response = await provider.complete(messages)
+    response = await complete_with_retry(
+        provider, messages, label="Architecture Overview"
+    )
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")
@@ -215,7 +217,9 @@ async def _generate_api_chunk_with_retry(
             ),
         ]
 
-    response = await provider.complete(_build_messages())
+    response = await complete_with_retry(
+        provider, _build_messages(), label=f"API chunk {chunk_index}/{chunk_total}"
+    )
     content = response.content or ""
     heading_count = len(_H3_PATTERN.findall(content))
 
@@ -225,7 +229,11 @@ async def _generate_api_chunk_with_retry(
             f"under-produced ({heading_count}/{expected} endpoints), "
             f"retrying[/yellow]"
         )
-        retry = await provider.complete(_build_messages())
+        retry = await complete_with_retry(
+            provider,
+            _build_messages(),
+            label=f"API chunk {chunk_index}/{chunk_total} (under-produced retry)",
+        )
         retry_content = retry.content or ""
         retry_headings = len(_H3_PATTERN.findall(retry_content))
         if retry_headings > heading_count:
@@ -272,7 +280,7 @@ async def generate_infra_doc(
         ),
     ]
 
-    response = await provider.complete(messages)
+    response = await complete_with_retry(provider, messages, label="Infrastructure")
 
     env = _get_jinja_env()
     template = env.get_template("doc_page.md.j2")

@@ -5,9 +5,19 @@ All modules depend on this protocol — never on a concrete adapter.
 
 from __future__ import annotations
 
+import asyncio
+import os
 from typing import AsyncIterator, Protocol
 
 from pydantic import BaseModel
+from rich.console import Console
+
+from codebase_teacher.core.exceptions import LLMError
+
+_console = Console()
+
+DEFAULT_MAX_ATTEMPTS = int(os.environ.get("CODEBASE_TEACHER_LLM_MAX_ATTEMPTS", "3"))
+DEFAULT_RETRY_BASE_DELAY = float(os.environ.get("CODEBASE_TEACHER_LLM_RETRY_DELAY", "2.0"))
 
 
 class Message(BaseModel):
@@ -72,3 +82,49 @@ class LLMProvider(Protocol):
     def model_name(self) -> str:
         """Human-readable model identifier."""
         ...
+
+
+async def complete_with_retry(
+    provider: LLMProvider,
+    messages: list[Message],
+    *,
+    label: str,
+    temperature: float = 0.3,
+    max_tokens: int | None = None,
+    response_format: type[BaseModel] | None = None,
+    attempts: int = DEFAULT_MAX_ATTEMPTS,
+    base_delay: float = DEFAULT_RETRY_BASE_DELAY,
+) -> LLMResponse:
+    """Call ``provider.complete`` with exponential-backoff retry on ``LLMError``.
+
+    Transient claude-CLI failures (non-zero exit, parse errors) bubble up as
+    ``LLMError``. A single failure loses the whole section, so retry up to
+    ``attempts`` times with delays of ``base_delay * 2**i``. Each failed attempt
+    logs the underlying error and prompt size so persistent failures are
+    diagnosable. The last attempt's exception is re-raised.
+    """
+    prompt_bytes = sum(len(m.content) for m in messages)
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return await provider.complete(
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format=response_format,
+            )
+        except LLMError:
+            if attempt < attempts:
+                delay = base_delay * (2 ** (attempt - 1))
+                _console.print(
+                    f"  [yellow]{label} failed (attempt {attempt}/{attempts}, "
+                    f"prompt {prompt_bytes:,} bytes) — retrying in "
+                    f"{delay:.0f}s[/yellow]"
+                )
+                await asyncio.sleep(delay)
+            else:
+                _console.print(
+                    f"  [red]{label} failed (attempt {attempt}/{attempts}, "
+                    f"prompt {prompt_bytes:,} bytes) — giving up[/red]"
+                )
+                raise

@@ -458,3 +458,91 @@ async def test_html_project_name_in_title(mock_provider, tmp_path):
         assert "<title>" in content
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_html_section_recovers_after_transient_llm_error(
+    mock_provider, tmp_path, monkeypatch
+):
+    """A transient LLMError on one section should retry and succeed, not drop the section."""
+    from unittest.mock import AsyncMock
+
+    from codebase_teacher.core.exceptions import LLMError
+
+    # Patch asyncio.sleep so the backoff doesn't slow the test.
+    monkeypatch.setattr(
+        "codebase_teacher.llm.provider.asyncio.sleep", AsyncMock()
+    )
+
+    # Wrap the mock provider so the first call to the Infrastructure prompt
+    # raises LLMError, then subsequent calls succeed via the normal canned path.
+    original_complete = mock_provider.complete
+    failed_once = {"done": False}
+
+    async def flaky_complete(messages, **kwargs):
+        user_msg = messages[-1].content if messages else ""
+        # Trigger a transient error on the Infrastructure prompt exactly once.
+        if user_msg.startswith("Generate infrastructure documentation.") and not failed_once["done"]:
+            failed_once["done"] = True
+            raise LLMError("claude CLI exited with code 1: transient")
+        return await original_complete(messages, **kwargs)
+
+    mock_provider.complete = flaky_complete
+
+    store, db = _make_store(tmp_path)
+    try:
+        analysis = _make_analysis()
+        path, errors = await generate_html_page(
+            mock_provider, analysis, store, project_name="retry-test",
+        )
+
+        content = path.read_text()
+        # The Infrastructure section should survive the transient failure.
+        assert 'id="infrastructure"' in content
+        # No unrecoverable errors should be reported.
+        assert errors == []
+        # Confirm we did hit the failure path.
+        assert failed_once["done"] is True
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_html_section_gives_up_after_exhausting_retries(
+    mock_provider, tmp_path, monkeypatch
+):
+    """If every retry fails, the section is recorded in errors and others still render."""
+    from unittest.mock import AsyncMock
+
+    from codebase_teacher.core.exceptions import LLMError
+
+    monkeypatch.setattr(
+        "codebase_teacher.llm.provider.asyncio.sleep", AsyncMock()
+    )
+
+    original_complete = mock_provider.complete
+
+    async def always_failing_infra(messages, **kwargs):
+        user_msg = messages[-1].content if messages else ""
+        if user_msg.startswith("Generate infrastructure documentation."):
+            raise LLMError("claude CLI exited with code 1: persistent")
+        return await original_complete(messages, **kwargs)
+
+    mock_provider.complete = always_failing_infra
+
+    store, db = _make_store(tmp_path)
+    try:
+        analysis = _make_analysis()
+        path, errors = await generate_html_page(
+            mock_provider, analysis, store, project_name="retry-fail-test",
+        )
+
+        # Infrastructure section failure is reported, but index.html still produced.
+        assert path.exists()
+        assert any(title == "Infrastructure" for title, _ in errors)
+        content = path.read_text()
+        # Other sections still rendered.
+        assert 'id="start-here"' in content
+        assert 'id="api-reference"' in content
+    finally:
+        db.close()

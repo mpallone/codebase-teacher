@@ -27,7 +27,7 @@ from codebase_teacher.generator.docs import (
     console,
 )
 from codebase_teacher.llm.prompt_registry import PROMPTS
-from codebase_teacher.llm.provider import LLMProvider, Message
+from codebase_teacher.llm.provider import LLMProvider, Message, complete_with_retry
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
 
@@ -107,7 +107,7 @@ async def _generate_section(
         Message(role="system", content=prompt.format_system()),
         Message(role="user", content=prompt.format_user(**prompt_kwargs)),
     ]
-    response = await provider.complete(messages)
+    response = await complete_with_retry(provider, messages, label=f"Section '{title}'")
     return Section(
         title=title,
         slug=_slugify(title),
@@ -177,7 +177,9 @@ async def _generate_diagram_section(
                 ),
             ),
         ]
-        response = await provider.complete(messages)
+        response = await complete_with_retry(
+            provider, messages, label="Architecture Diagram"
+        )
         mermaid_code = _sanitize_mermaid(_clean_mermaid(response.content))
         html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
         return Section(
@@ -228,7 +230,9 @@ async def _generate_diagram_section(
                 ),
             ),
         ]
-        response = await provider.complete(messages)
+        response = await complete_with_retry(
+            provider, messages, label="Data Flow Diagrams"
+        )
         mermaid_code = _sanitize_mermaid(_clean_mermaid(response.content))
         html_content = f'<pre class="mermaid">{html.escape(mermaid_code)}</pre>'
         return Section(
