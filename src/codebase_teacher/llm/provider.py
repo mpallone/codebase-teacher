@@ -104,7 +104,6 @@ async def complete_with_retry(
     diagnosable. The last attempt's exception is re-raised.
     """
     prompt_bytes = sum(len(m.content) for m in messages)
-    last_exc: LLMError | None = None
 
     for attempt in range(1, attempts + 1):
         try:
@@ -114,21 +113,18 @@ async def complete_with_retry(
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
-        except LLMError as exc:
-            last_exc = exc
+        except LLMError:
             if attempt < attempts:
                 delay = base_delay * (2 ** (attempt - 1))
                 _console.print(
                     f"  [yellow]{label} failed (attempt {attempt}/{attempts}, "
-                    f"prompt {prompt_bytes:,} bytes): {exc} — retrying in "
+                    f"prompt {prompt_bytes:,} bytes) — retrying in "
                     f"{delay:.0f}s[/yellow]"
                 )
                 await asyncio.sleep(delay)
             else:
                 _console.print(
                     f"  [red]{label} failed (attempt {attempt}/{attempts}, "
-                    f"prompt {prompt_bytes:,} bytes): {exc} — giving up[/red]"
+                    f"prompt {prompt_bytes:,} bytes) — giving up[/red]"
                 )
-
-    assert last_exc is not None
-    raise last_exc
+                raise
