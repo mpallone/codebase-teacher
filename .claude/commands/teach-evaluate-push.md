@@ -396,10 +396,11 @@ specified there.
 
 The workflow branches on `{format}`:
 
-- `markdown` → archives the six generated files to a new
-  `teacher-output/{basename}/{timestamp}` branch.
+- `markdown` → displays the local paths under
+  `{path}/.teacher-output/` and stops. No staging, commit, branch, or
+  push.
 - `html` → publishes the single `index.html` to the `html-test-host`
-  branch (which GitHub Pages serves). No archival branch is created.
+  branch (which GitHub Pages serves).
 
 Pick the correct branch of the workflow based on `{format}` and execute
 it fully before recording `WORKFLOW_END_MS`.

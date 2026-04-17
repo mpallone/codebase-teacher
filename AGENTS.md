@@ -21,42 +21,25 @@ Address all findings from the verification skill before committing.
 ## Post-Teach Workflow
 
 After the `/teach-evaluate-push` skill returns its assessment, always do
-the following. The push step branches on `{format}`: markdown runs
-create an archival branch; html runs publish to the `html-test-host`
-branch that GitHub Pages serves.
+the following. The push step branches on `{format}`: markdown runs do
+not push — they display the locally generated files and stop; html runs
+publish to the `html-test-host` branch that GitHub Pages serves.
 
 1. Display the skill's **full** structured assessment without summarizing.
 2. For each generated file in `{path}/.teacher-output/`, display only its
-   file name and size. The full content will be viewable via the GitHub
-   link(s) shown after pushing.
+   file name and size.
 
-### If `{format}` is `markdown` — archive to a teacher-output branch
+### If `{format}` is `markdown` — no push
 
-3m. Copy the output into the codebase-teacher repo for committing:
-   ```bash
-   mkdir -p .teacher-staging/{basename}
-   cp -r {path}/.teacher-output/* .teacher-staging/{basename}/
-   ```
-4m. Create a temporary branch, force-add, commit, and push:
-   ```bash
-   git checkout -b teacher-output/{basename}/$(date +%Y%m%d-%H%M%S)
-   git add -f .teacher-staging/
-   git commit -m "teacher output for {basename}"
-   git push -u origin HEAD
-   ```
-5m. Display GitHub links to each pushed file:
-   ```
-   https://github.com/mpallone/codebase-teacher/blob/{branch}/.teacher-staging/{basename}/{file}
-   ```
-6m. Switch back to the original branch.
+3m. Display the absolute path to each file under
+   `{path}/.teacher-output/` so the user can open them locally. Do not
+   stage, commit, branch, or push. Stop here.
 
 ### If `{format}` is `html` — publish to the `html-test-host` branch
 
 The `html-test-host` branch is served by GitHub Pages. Only the tip
 tree is served; only `index.html` at the branch root is hosted. Each
 run overwrites the previous report.
-
-Do **not** create a teacher-output/* archival branch for html runs.
 
 Use a git worktree so the push happens without disturbing the
 current branch. The worktree path `.teacher-staging/html-test-host`
@@ -101,12 +84,7 @@ Always carry out the steps.
 Shared:
 
 - Before step 1: print `## Displaying assessment...`
-- After step 5m or 5h: print `## Push complete.`
-
-Markdown path:
-
-- Before step 3m: print `## Copying output to .teacher-staging/...`
-- Before step 4m: print `## Creating archival branch, committing, and pushing...`
+- After step 5h: print `## Push complete.`
 
 HTML path:
 
