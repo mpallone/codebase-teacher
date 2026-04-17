@@ -1,5 +1,7 @@
 # Codebase Teacher
 
+**Hosted report:** https://mpallone.github.io/codebase-teacher/
+
 AI-powered codebase analysis tool that generates architecture documentation, API references, infrastructure guides, and Mermaid diagrams to help onboard engineers to unfamiliar codebases.
 
 ## Prerequisites
@@ -240,18 +242,6 @@ branch via GitHub Pages.
   `{path}/.teacher-output/` locally and does not push anywhere.
 - `html-test-host` also contains a `.nojekyll` marker so Pages serves
   files literally (no Jekyll processing).
-
-### Enabling GitHub Pages (one-time)
-
-In the repo's GitHub settings, configure Pages to build from branch
-`html-test-host` at path `/ (root)`. Once enabled, the hosted URL is:
-
-```
-https://mpallone.github.io/codebase-teacher/
-```
-
-Until Pages is enabled, pushes to `html-test-host` still succeed but
-the URL will 404.
 
 ## Development
 
