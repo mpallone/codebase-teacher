@@ -60,21 +60,20 @@
          Confirmed: all CSS is inline, all content embedded, only external
          resource is the pinned mermaid.js CDN script.
 
-   ### Phase 2: Rich standalone visualizations
-   - [ ] 2h. Generate dedicated interactive visualization files (e.g.
-         `architecture-explorer.html`) using D3.js force-directed graphs or
-         similar. These are separate files linked from the main docs.
-         Feed the AnalysisResult data (modules, dependencies, APIs) as inline
-         JSON so D3.js can render it client-side.
-   - [ ] 2i. Add an animated request-flow walkthrough: a step-by-step visualization
-         that highlights each component in sequence as a request passes through
-         the system. Use the existing DataFlow analysis as input.
-   - [ ] 2j. Gate Phase 2 behind a `--rich-visualizations` flag (off by default).
-         These files are larger and slower to generate. Only attempt with
-         providers known to produce good frontend code (document which ones).
-   - [ ] 2k. Test Phase 2 output across Chrome, Firefox, and Safari (desktop
-         and mobile) to ensure no browser-specific or responsive layout issues
-         with the generated JS and CSS.
+   ### Phase 2: Rich standalone visualizations — Not planned
+   Previously scoped as D3.js force-directed architecture explorer, animated
+   request-flow walkthrough, `--rich-visualizations` flag, and cross-browser
+   testing. Removed because:
+   - Phase 1 already ships an LLM-generated Mermaid architecture diagram and
+     per-flow sequence diagrams (`generator/html.py:157-205`).
+   - `AnalysisResult` has no precomputed module→module edge list and
+     `DataFlow.steps` is `list[str]` (`storage/models.py:124-143`), so a D3
+     graph would be sparser than the existing Mermaid one and an "animated
+     walkthrough" would be a click-through of names.
+   - Adding D3 either pulls in a large CDN dep or breaks the "no build step"
+     guarantee from Phase 1 item 2d.
+   - Real mermaid pain points are bugs #18 and #31, which D3 does not address.
+   Revisit only if the analyzer grows a real dependency graph.
 
 ## Pipeline Parallelism & Failure Surfacing
 
