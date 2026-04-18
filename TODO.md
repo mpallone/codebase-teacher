@@ -226,7 +226,12 @@
     Dockerfiles always reach the LLM even if `teach scan` wasn't run.
 11. [x] Add fastapi-realworld-example-app as tier 2 test repo
 12. [x] Add spring-petclinic (Java) as tier 3 test repo
-13. [ ] Add a small Terraform repo to exercise HCL parsing
+13. [x] Add a small Terraform repo to exercise HCL parsing.
+    Added `terraform-aws-modules/terraform-aws-vpc` as `tests/repos/terraform-aws-vpc`.
+    Canonical community AWS VPC module; exercises the full HCL surface
+    (variables, outputs, locals, `dynamic` blocks, `for_each`, conditional
+    expressions, module references, nested submodules under `modules/`,
+    and multiple standalone example projects under `examples/`).
 14. [ ] Once confidence in the tool is established, externalize or remove the test repo
     submodules from this project. The submodules are a development-time scaffold,
     not a permanent part of the repo. Options: move to a separate test-harness repo,
