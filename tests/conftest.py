@@ -19,15 +19,16 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures" / "sample_project"
 class MockLLMProvider:
     """Mock LLM provider that returns canned responses for testing."""
 
-    def __init__(self, responses: dict[str, str] | None = None):
+    def __init__(self, responses: dict[str, str] | None = None, temperature: float = 0.3):
         self._responses = responses or {}
         self._default_response = "This is a mock LLM response."
         self._calls: list[list[Message]] = []
+        self._temperature = temperature
 
     async def complete(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         response_format=None,
     ) -> LLMResponse:
@@ -50,7 +51,7 @@ class MockLLMProvider:
     async def stream(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
     ) -> AsyncIterator[str]:
         self._calls.append(messages)
         for word in self._default_response.split():
@@ -63,6 +64,10 @@ class MockLLMProvider:
     @property
     def max_tokens(self) -> int:
         return 16384
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
 
     @property
     def model_name(self) -> str:

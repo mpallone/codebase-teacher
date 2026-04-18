@@ -20,18 +20,21 @@ litellm.suppress_debug_info = True
 class LiteLLMProvider:
     """LLM provider backed by litellm."""
 
-    def __init__(self, model: str, max_tokens: int = 16384):
+    def __init__(self, model: str, max_tokens: int = 16384, temperature: float = 0.3):
         self._model = model
         self._max_tokens = max_tokens
+        self._temperature = temperature
         self._context_window: int | None = None
 
     async def complete(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         response_format: type[BaseModel] | None = None,
     ) -> LLMResponse:
+        if temperature is None:
+            temperature = self._temperature
         kwargs: dict = {
             "model": self._model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
@@ -61,8 +64,10 @@ class LiteLLMProvider:
     async def stream(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
     ) -> AsyncIterator[str]:
+        if temperature is None:
+            temperature = self._temperature
         try:
             response = await litellm.acompletion(
                 model=self._model,
@@ -95,6 +100,10 @@ class LiteLLMProvider:
     @property
     def max_tokens(self) -> int:
         return self._max_tokens
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
 
     @property
     def model_name(self) -> str:

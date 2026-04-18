@@ -167,7 +167,7 @@ All settings use the `CODEBASE_TEACHER_` prefix:
 |----------|---------|-------------|
 | `CODEBASE_TEACHER_PROVIDER` | `claude-code` | LLM backend: `claude-code` or `litellm` |
 | `CODEBASE_TEACHER_MODEL` | `anthropic/claude-sonnet-4-20250514` | Model (litellm provider only) |
-| `CODEBASE_TEACHER_TEMPERATURE` | `0.3` | LLM temperature (0.0–2.0) |
+| `CODEBASE_TEACHER_TEMPERATURE` | `0.3` | LLM sampling temperature (0.0–2.0). Forwarded to the model by the `litellm` provider only — the `claude-code` provider accepts it for consistency but cannot pass it to the `claude` CLI (the CLI has no temperature flag). |
 | `CODEBASE_TEACHER_MAX_TOKENS` | `16384` | Max output tokens per LLM call |
 | `CODEBASE_TEACHER_MAX_CONCURRENT_LLM_CALLS` | `5` | Concurrent LLM call limit |
 | `CODEBASE_TEACHER_OUTPUT_DIR` | `.teacher-output` | Output directory (relative to target project) |

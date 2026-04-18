@@ -53,17 +53,21 @@ class LLMProvider(Protocol):
     async def complete(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         response_format: type[BaseModel] | None = None,
     ) -> LLMResponse:
-        """Send a completion request and return the full response."""
+        """Send a completion request and return the full response.
+
+        ``temperature=None`` means "use the provider's configured default"
+        (set from ``Settings.temperature`` at construction time).
+        """
         ...
 
     async def stream(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
     ) -> AsyncIterator[str]:
         """Stream a completion response, yielding content chunks."""
         ...
@@ -79,6 +83,11 @@ class LLMProvider(Protocol):
         ...
 
     @property
+    def temperature(self) -> float:
+        """Configured default sampling temperature for this provider."""
+        ...
+
+    @property
     def model_name(self) -> str:
         """Human-readable model identifier."""
         ...
@@ -89,7 +98,7 @@ async def complete_with_retry(
     messages: list[Message],
     *,
     label: str,
-    temperature: float = 0.3,
+    temperature: float | None = None,
     max_tokens: int | None = None,
     response_format: type[BaseModel] | None = None,
     attempts: int = DEFAULT_MAX_ATTEMPTS,

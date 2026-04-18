@@ -29,7 +29,7 @@ class _StubProvider:
     async def complete(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         response_format=None,
     ) -> LLMResponse:
@@ -41,7 +41,7 @@ class _StubProvider:
         )
 
     async def stream(
-        self, messages: list[Message], temperature: float = 0.3
+        self, messages: list[Message], temperature: float | None = None
     ) -> AsyncIterator[str]:
         self.calls.append(messages)
         yield self._response
@@ -53,6 +53,10 @@ class _StubProvider:
     @property
     def max_tokens(self) -> int:
         return 16_384
+
+    @property
+    def temperature(self) -> float:
+        return 0.3
 
     @property
     def model_name(self) -> str:
