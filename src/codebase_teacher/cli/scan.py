@@ -9,7 +9,11 @@ from rich.console import Console
 
 from codebase_teacher.core.config import Settings
 from codebase_teacher.scanner.dependency import detect_dependencies, print_dependency_report
-from codebase_teacher.scanner.discovery import auto_select_all, interactive_folder_selection
+from codebase_teacher.scanner.discovery import (
+    auto_select_all,
+    folders_from_file,
+    interactive_folder_selection,
+)
 from codebase_teacher.scanner.file_classifier import classify_directory
 from codebase_teacher.storage.database import Database
 
@@ -19,9 +23,21 @@ console = Console()
 @click.command()
 @click.argument("path", type=click.Path(exists=True, file_okay=False, resolve_path=True))
 @click.option("--auto", is_flag=True, help="Auto-select all folders (non-interactive, for headless/mobile use)")
+@click.option(
+    "--folders-file",
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+    default=None,
+    help=(
+        "Path to a file listing directories to scan (one per line, absolute or "
+        "relative to <path>). Skips the interactive prompt. Mutually exclusive with --auto."
+    ),
+)
 @click.pass_context
-def scan(ctx: click.Context, path: str, auto: bool) -> None:
+def scan(ctx: click.Context, path: str, auto: bool, folders_file: str | None) -> None:
     """Scan a codebase — discover folders and classify files."""
+    if auto and folders_file:
+        raise click.UsageError("--auto and --folders-file are mutually exclusive.")
+
     root = Path(path)
     settings = Settings()
     if ctx.obj.get("model"):
@@ -35,7 +51,14 @@ def scan(ctx: click.Context, path: str, auto: bool) -> None:
 
     # Step 1: Folder discovery
     console.print("\n[bold cyan]Step 1: Folder Discovery[/]")
-    if auto:
+    if folders_file:
+        try:
+            relevant_folders = folders_from_file(
+                root, Path(folders_file), db, project_id, console
+            )
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+    elif auto:
         relevant_folders = auto_select_all(root, db, project_id, console)
     else:
         relevant_folders = interactive_folder_selection(root, db, project_id, console)
