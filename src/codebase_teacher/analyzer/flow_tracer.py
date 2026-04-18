@@ -6,7 +6,7 @@ API/infra inventories to identify how data moves through the system.
 
 from __future__ import annotations
 
-from codebase_teacher.llm.prompt_registry import PROMPTS
+from codebase_teacher.llm.prompt_registry import PROMPTS, with_learner_context
 from codebase_teacher.llm.provider import LLMProvider, Message
 from codebase_teacher.llm.structured import complete_and_parse_list
 from codebase_teacher.storage.models import DataFlow
@@ -18,6 +18,7 @@ async def trace_data_flows(
     module_summaries: dict[str, str],
     api_endpoints: list[dict],
     infrastructure: list[dict],
+    learner_info: str = "",
 ) -> list[DataFlow]:
     """Trace major data flows through the system.
 
@@ -27,6 +28,7 @@ async def trace_data_flows(
         module_summaries: Dict of {module_path: summary}.
         api_endpoints: Serialized API endpoint data.
         infrastructure: Serialized infrastructure component data.
+        learner_info: Optional LEARNER-INFO.md text to prioritize in tracing.
 
     Returns:
         List of traced data flows with Mermaid diagrams.
@@ -36,9 +38,10 @@ async def trace_data_flows(
     )
 
     prompt = PROMPTS["trace_data_flow"]
+    user_content = prompt.format_user(summaries=summaries)
     messages = [
         Message(role="system", content=prompt.format_system()),
-        Message(role="user", content=prompt.format_user(summaries=summaries)),
+        Message(role="user", content=with_learner_context(user_content, learner_info)),
     ]
 
     return await complete_and_parse_list(provider, messages, DataFlow)

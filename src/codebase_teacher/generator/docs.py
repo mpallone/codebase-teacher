@@ -14,7 +14,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from rich.console import Console
 
 from codebase_teacher.core.exceptions import LLMError
-from codebase_teacher.llm.prompt_registry import PROMPTS
+from codebase_teacher.llm.prompt_registry import PROMPTS, with_learner_context
 from codebase_teacher.llm.provider import LLMProvider, Message, complete_with_retry
 from codebase_teacher.storage.artifact_store import ArtifactStore
 from codebase_teacher.storage.models import AnalysisResult
@@ -47,17 +47,18 @@ async def generate_overview_doc(
     before diving into the deeper architecture and API docs.
     """
     prompt = PROMPTS["generate_overview_doc"]
+    user_content = prompt.format_user(
+        project_summary=analysis.project_summary or "No project summary available.",
+        module_summaries=_format_module_summaries(analysis.module_summaries),
+        infrastructure=_format_infrastructure(analysis.infrastructure),
+        apis=_format_apis(analysis.api_endpoints),
+        data_flows=_format_data_flows(analysis.data_flows),
+    )
     messages = [
         Message(role="system", content=prompt.format_system()),
         Message(
             role="user",
-            content=prompt.format_user(
-                project_summary=analysis.project_summary or "No project summary available.",
-                module_summaries=_format_module_summaries(analysis.module_summaries),
-                infrastructure=_format_infrastructure(analysis.infrastructure),
-                apis=_format_apis(analysis.api_endpoints),
-                data_flows=_format_data_flows(analysis.data_flows),
-            ),
+            content=with_learner_context(user_content, analysis.learner_info),
         ),
     ]
 
@@ -80,17 +81,18 @@ async def generate_architecture_doc(
 ) -> Path:
     """Generate the main architecture document."""
     prompt = PROMPTS["generate_architecture_doc"]
+    user_content = prompt.format_user(
+        project_summary=analysis.project_summary,
+        module_summaries=_format_module_summaries(analysis.module_summaries),
+        data_flows=_format_data_flows(analysis.data_flows),
+        infrastructure=_format_infrastructure(analysis.infrastructure),
+        apis=_format_apis(analysis.api_endpoints),
+    )
     messages = [
         Message(role="system", content=prompt.format_system()),
         Message(
             role="user",
-            content=prompt.format_user(
-                project_summary=analysis.project_summary,
-                module_summaries=_format_module_summaries(analysis.module_summaries),
-                data_flows=_format_data_flows(analysis.data_flows),
-                infrastructure=_format_infrastructure(analysis.infrastructure),
-                apis=_format_apis(analysis.api_endpoints),
-            ),
+            content=with_learner_context(user_content, analysis.learner_info),
         ),
     ]
 
@@ -144,6 +146,7 @@ async def generate_api_doc(
             chunk_index=1,
             chunk_total=1,
             data_flows_formatted=_format_data_flows(analysis.data_flows),
+            learner_info=analysis.learner_info,
         )
 
     env = _get_jinja_env()
@@ -177,6 +180,7 @@ async def _generate_api_doc_chunked(
             chunk_index=idx,
             chunk_total=len(chunks),
             data_flows_formatted=data_flows,
+            learner_info=analysis.learner_info,
         )
         parts.append(part)
 
@@ -189,6 +193,7 @@ async def _generate_api_chunk_with_retry(
     chunk_index: int,
     chunk_total: int,
     data_flows_formatted: str,
+    learner_info: str = "",
 ) -> str:
     """Call the LLM for one API chunk, retry once if the output is under-produced.
 
@@ -203,17 +208,18 @@ async def _generate_api_chunk_with_retry(
     threshold = max(1, expected // 2)
 
     def _build_messages() -> list[Message]:
+        user_content = prompt.format_user(
+            apis=apis_formatted,
+            data_flows=data_flows_formatted,
+            chunk_index=chunk_index,
+            chunk_total=chunk_total,
+            endpoint_count=expected,
+        )
         return [
             Message(role="system", content=prompt.format_system()),
             Message(
                 role="user",
-                content=prompt.format_user(
-                    apis=apis_formatted,
-                    data_flows=data_flows_formatted,
-                    chunk_index=chunk_index,
-                    chunk_total=chunk_total,
-                    endpoint_count=expected,
-                ),
+                content=with_learner_context(user_content, learner_info),
             ),
         ]
 
@@ -270,13 +276,14 @@ async def generate_infra_doc(
         return store.write("docs", "infrastructure.md", content)
 
     prompt = PROMPTS["generate_infra_doc"]
+    user_content = prompt.format_user(
+        infrastructure=_format_infrastructure(analysis.infrastructure),
+    )
     messages = [
         Message(role="system", content=prompt.format_system()),
         Message(
             role="user",
-            content=prompt.format_user(
-                infrastructure=_format_infrastructure(analysis.infrastructure),
-            ),
+            content=with_learner_context(user_content, analysis.learner_info),
         ),
     ]
 

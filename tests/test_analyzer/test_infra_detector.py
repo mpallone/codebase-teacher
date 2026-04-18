@@ -196,6 +196,34 @@ async def test_detect_infrastructure_llm_result_with_multiple_hints():
         assert comp.explanation != ""
 
 
+async def test_detect_infrastructure_threads_learner_info():
+    """learner_info must reach the user message as a preamble."""
+    provider = _StubProvider(response="[]")
+    await detect_infrastructure(
+        provider,
+        {"Dockerfile": "FROM python:3.11\n"},
+        infra_hints=["Docker (containerization)"],
+        learner_info="Focus on Kafka; treat containers as supporting context.",
+    )
+    assert provider.calls
+    user_content = provider.calls[0][1].content
+    assert "Learner Context" in user_content
+    assert "Focus on Kafka" in user_content
+
+
+async def test_detect_infrastructure_no_learner_info_no_preamble():
+    """Default empty learner_info leaves the prompt untouched."""
+    provider = _StubProvider(response="[]")
+    await detect_infrastructure(
+        provider,
+        {"Dockerfile": "FROM python:3.11\n"},
+        infra_hints=["Docker (containerization)"],
+    )
+    assert provider.calls
+    user_content = provider.calls[0][1].content
+    assert "Learner Context" not in user_content
+
+
 async def test_detect_infrastructure_no_hardcoded_descriptions_in_fallback():
     """Fallback must contain zero hardcoded domain knowledge."""
     provider = _StubProvider(response="[]")

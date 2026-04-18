@@ -141,3 +141,4 @@ class AnalysisResult(BaseModel):
     file_summaries: dict[str, str] = Field(default_factory=dict)
     module_summaries: dict[str, str] = Field(default_factory=dict)
     project_summary: str = ""
+    learner_info: str = ""
