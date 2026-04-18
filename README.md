@@ -39,7 +39,6 @@ find tests/fixtures/sample_project/.teacher-output -type f | sort
 Notes:
 
 - `openai/gpt-5.4` worked in the verified setup above.
-  different model ID that your token can access.
 - The HTML smoke test above should create
   `tests/fixtures/sample_project/.teacher-output/index.html`.
 
