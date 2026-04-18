@@ -51,6 +51,16 @@ Discovers the project structure, classifies files by type (source, config, test,
 
 - **Interactive mode** (default): Prompts you to mark each top-level folder as relevant or not.
 - **`--auto` flag**: Auto-selects all folders. Required for headless/mobile use.
+- **`--folders-file <path>` flag**: Read the relevant-folder list from a file instead of being prompted. One directory per line, absolute or relative to `<path>`. Blank lines and lines starting with `#` are ignored. Mutually exclusive with `--auto`.
+
+  Example file contents:
+
+  ```
+  # Folders to scan, relative to the project root
+  src
+  services/api
+  /abs/path/to/shared-lib
+  ```
 
 ### `teach analyze <path>`
 
@@ -113,6 +123,7 @@ teach --model anthropic/claude-sonnet-4-20250514 analyze /path  # Set model (lit
 # Scan modes
 teach scan /path                              # Interactive folder selection
 teach scan --auto /path                       # Auto-select all folders
+teach scan --folders-file dirs.txt /path      # Read folder list from a file
 
 # Generate options
 teach generate /path                          # Generate docs + diagrams

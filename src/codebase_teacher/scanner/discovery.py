@@ -127,6 +127,74 @@ def auto_select_all(
     return relevant
 
 
+def folders_from_file(
+    root: Path,
+    folders_file: Path,
+    db: Database,
+    project_id: int,
+    console: Console | None = None,
+) -> list[str]:
+    """Load the relevant-folder set from a user-supplied file.
+
+    Each non-blank, non-comment line is a directory path. Absolute paths must
+    live inside ``root``; relative paths are interpreted relative to ``root``.
+    The returned list matches the shape produced by ``auto_select_all`` and
+    ``interactive_folder_selection`` (paths relative to ``root``) and each
+    folder is persisted to the database as ``relevant``.
+
+    Raises ``ValueError`` (wrapped by the CLI into ``click.UsageError``) when
+    the file is empty, a listed path is missing, is not a directory, or falls
+    outside ``root``.
+    """
+    console = console or Console()
+    root_resolved = root.resolve()
+    relevant: list[str] = []
+
+    for lineno, raw in enumerate(folders_file.read_text().splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        entry = Path(line)
+        if entry.is_absolute():
+            resolved = entry.resolve()
+            try:
+                rel = resolved.relative_to(root_resolved)
+            except ValueError as exc:
+                raise ValueError(
+                    f"{folders_file}:{lineno}: {line!r} is outside the scan root {root}"
+                ) from exc
+        else:
+            resolved = (root_resolved / entry).resolve()
+            try:
+                rel = resolved.relative_to(root_resolved)
+            except ValueError as exc:
+                raise ValueError(
+                    f"{folders_file}:{lineno}: {line!r} resolves outside the scan root {root}"
+                ) from exc
+
+        if not resolved.exists():
+            raise ValueError(
+                f"{folders_file}:{lineno}: directory does not exist: {line!r}"
+            )
+        if not resolved.is_dir():
+            raise ValueError(
+                f"{folders_file}:{lineno}: not a directory: {line!r}"
+            )
+
+        rel_path = str(rel)
+        db.set_folder_status(project_id, rel_path, "relevant")
+        relevant.append(rel_path)
+
+    if not relevant:
+        raise ValueError(
+            f"{folders_file}: no directories listed (file is empty or only contains comments)"
+        )
+
+    console.print(f"[green]Loaded {len(relevant)} folder(s) from {folders_file}.[/]")
+    return relevant
+
+
 def interactive_folder_selection(
     root: Path,
     db: Database,
