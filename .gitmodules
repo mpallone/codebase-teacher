@@ -10,3 +10,7 @@
 	path = tests/repos/spring-petclinic
 	url = https://github.com/spring-projects/spring-petclinic.git
 	ignore = dirty
+[submodule "tests/repos/terraform-aws-vpc"]
+	path = tests/repos/terraform-aws-vpc
+	url = https://github.com/terraform-aws-modules/terraform-aws-vpc.git
+	ignore = dirty
