@@ -342,3 +342,40 @@ async def test_generate_all_docs_includes_overview_first(mock_provider, tmp_path
             assert p.exists()
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_all_docs_threads_learner_info(mock_provider, tmp_path):
+    """Learner info must reach every doc-generator LLM call."""
+    store, db = _make_store(tmp_path)
+    try:
+        analysis = _make_analysis()
+        analysis.learner_info = "I only care about the signup flow."
+
+        paths, errors = await generate_all_docs(mock_provider, analysis, store)
+        assert not errors
+
+        # Every recorded user message should carry the learner preamble.
+        for call in mock_provider._calls:
+            user_msg = call[-1].content
+            assert "Learner Context" in user_msg
+            assert "signup flow" in user_msg
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_overview_doc_without_learner_info_no_preamble(
+    mock_provider, tmp_path
+):
+    """Default empty learner_info means no preamble is injected."""
+    store, db = _make_store(tmp_path)
+    try:
+        analysis = _make_analysis()  # learner_info defaults to ""
+
+        await generate_overview_doc(mock_provider, analysis, store)
+
+        user_msg = mock_provider._calls[-1][-1].content
+        assert "Learner Context" not in user_msg
+    finally:
+        db.close()

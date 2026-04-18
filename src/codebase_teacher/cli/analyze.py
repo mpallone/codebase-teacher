@@ -17,12 +17,13 @@ from codebase_teacher.analyzer.code_parser import parse_codebase
 from codebase_teacher.analyzer.flow_tracer import trace_data_flows
 from codebase_teacher.analyzer.infra_detector import detect_infrastructure
 from codebase_teacher.core.config import Settings
-from codebase_teacher.core.exceptions import LLMError
+from codebase_teacher.core.exceptions import LearnerInfoTooLarge, LLMError
 from codebase_teacher.core.results import FileFailure, PartialResult
 from codebase_teacher.llm.context_manager import ContextManager
 from codebase_teacher.llm.factory import create_provider
 from codebase_teacher.scanner.dependency import detect_dependencies
 from codebase_teacher.scanner.file_classifier import classify_file
+from codebase_teacher.scanner.learner_info import learner_info_bytes, load_learner_info
 from codebase_teacher.storage.database import Database
 from codebase_teacher.storage.models import AnalysisResult
 
@@ -51,6 +52,19 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
     db = Database(settings.db_path(root))
     project_id = db.get_or_create_project(str(root), root.name)
 
+    try:
+        learner_info = load_learner_info(root)
+    except LearnerInfoTooLarge as e:
+        console.print(f"[red bold]{e}[/]")
+        db.close()
+        sys.exit(1)
+    learner_bytes = learner_info_bytes(root)
+    if learner_info:
+        console.print(
+            f"[cyan]Using LEARNER-INFO.md ({len(learner_info)} chars) "
+            f"to focus analysis.[/]"
+        )
+
     # Check that scan has been run
     relevant_folders = db.get_relevant_folders(project_id)
     if not relevant_folders:
@@ -78,7 +92,7 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
     console.print(f"[bold]Source files to analyze:[/] {len(source_files)}")
 
     # Check cache before spending LLM tokens
-    content_hash, hash_failures = _compute_hash(source_files, root)
+    content_hash, hash_failures = _compute_hash(source_files, root, learner_bytes)
     cached = db.get_cached_analysis(project_id, "full_analysis", content_hash)
     if cached:
         console.print("[green]Cache hit — skipping LLM analysis (source unchanged).[/]")
@@ -87,7 +101,11 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
 
     # Initialize LLM
     provider = create_provider(settings)
-    ctx_manager = ContextManager(provider, max_concurrent=settings.max_concurrent_llm_calls)
+    ctx_manager = ContextManager(
+        provider,
+        max_concurrent=settings.max_concurrent_llm_calls,
+        learner_info=learner_info,
+    )
 
     result = AnalysisResult()
     all_failures: list[FileFailure] = list(hash_failures)
@@ -226,7 +244,10 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
             infra_files[path] = content
         try:
             result.infrastructure = await detect_infrastructure(
-                provider, infra_files, dep_report.infra_hints
+                provider,
+                infra_files,
+                dep_report.infra_hints,
+                learner_info=learner_info,
             )
         except LLMError as e:
             progress.stop()
@@ -247,6 +268,7 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
                 result.module_summaries,
                 [ep.model_dump() for ep in result.api_endpoints],
                 [comp.model_dump() for comp in result.infrastructure],
+                learner_info=learner_info,
             )
         except LLMError as e:
             progress.stop()
@@ -259,7 +281,8 @@ async def _analyze_async(root: Path, settings: Settings) -> None:
         progress.update(task, completed=True, description="[green]Data flow tracing complete")
 
     # Cache the full analysis result
-    content_hash, _ = _compute_hash(source_files, root)
+    result.learner_info = learner_info
+    content_hash, _ = _compute_hash(source_files, root, learner_bytes)
     db.cache_analysis(
         project_id, "full_analysis", content_hash,
         result.model_dump(),
@@ -325,11 +348,17 @@ def _group_by_module(file_summaries: list) -> dict:
     return dict(modules)
 
 
-def _compute_hash(source_files: list[str], root: Path) -> tuple[str, list[FileFailure]]:
+def _compute_hash(
+    source_files: list[str],
+    root: Path,
+    learner_info_bytes: bytes = b"",
+) -> tuple[str, list[FileFailure]]:
     """Compute a hash of all source file contents for caching.
 
     Files that cannot be read are hashed as a sentinel so the hash
-    changes if the file later becomes readable.
+    changes if the file later becomes readable. LEARNER-INFO.md bytes
+    are mixed in so edits to the learner's priorities invalidate the
+    cached analysis.
     """
     h = hashlib.sha256()
     failures: list[FileFailure] = []
@@ -344,4 +373,6 @@ def _compute_hash(source_files: list[str], root: Path) -> tuple[str, list[FileFa
                 error_type="OSError",
                 message=str(e),
             ))
+    h.update(b"LEARNER-INFO:")
+    h.update(learner_info_bytes)
     return h.hexdigest()[:16], failures

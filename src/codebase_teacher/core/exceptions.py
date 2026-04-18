@@ -9,6 +9,19 @@ class ScanError(CodebaseTeacherError):
     """Error during codebase scanning."""
 
 
+class LearnerInfoTooLarge(ScanError):
+    """LEARNER-INFO.md exists but exceeds the size limit."""
+
+    def __init__(self, actual_chars: int, limit_chars: int) -> None:
+        self.actual_chars = actual_chars
+        self.limit_chars = limit_chars
+        super().__init__(
+            f"LEARNER-INFO.md is {actual_chars} characters, which exceeds the "
+            f"limit of {limit_chars}. Trim the file or split it into smaller, "
+            f"more focused priorities."
+        )
+
+
 class AnalysisError(CodebaseTeacherError):
     """Error during code analysis."""
 

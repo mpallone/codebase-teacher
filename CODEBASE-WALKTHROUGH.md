@@ -190,7 +190,9 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 
 **Caching:** After all steps, assembles an `AnalysisResult` pydantic model and calls `db.cache_analysis(project_id, "full_analysis", content_hash, result.model_dump())`. The content hash is SHA-256 of all source file bytes (truncated to 16 hex chars). The `generate` command reads this cache.
 
-**`_compute_hash`:** Sorts source file paths (for determinism), reads each file's bytes, and updates a SHA-256 digest. Only the first 16 hex characters are used as the key — a convenience truncation sufficient for cache invalidation in practice.
+**`_compute_hash`:** Sorts source file paths (for determinism), reads each file's bytes, and updates a SHA-256 digest. Only the first 16 hex characters are used as the key — a convenience truncation sufficient for cache invalidation in practice. The bytes of `LEARNER-INFO.md` (if present at the project root) are also mixed into the hash so editing the learner's priorities invalidates the cache.
+
+**Optional `LEARNER-INFO.md`:** If the file exists at the project root, its contents are loaded via `scanner/learner_info.py::load_learner_info` and threaded as a high-priority preamble into every LLM prompt in the analyze pipeline (file/module/project summaries, infrastructure detection, data-flow tracing) and every doc-generation prompt. This lets the learner steer emphasis — e.g. "focus on repos A and B; treat their dependencies as supporting context." Files over 20,000 characters raise `LearnerInfoTooLarge` and the command exits rather than silently truncating.
 
 **`_group_by_module`:** Splits `file_path` on `"/"` and uses `parts[0]` as the module name. Files at the root level (no directory component) are grouped under `"."`. This means a project like `src/foo/bar.py` would group under `src`, while `main.py` would group under `"."`.
 

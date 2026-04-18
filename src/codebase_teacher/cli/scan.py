@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import click
 from rich.console import Console
 
 from codebase_teacher.core.config import Settings
+from codebase_teacher.core.exceptions import LearnerInfoTooLarge
 from codebase_teacher.scanner.dependency import detect_dependencies, print_dependency_report
 from codebase_teacher.scanner.discovery import auto_select_all, interactive_folder_selection
 from codebase_teacher.scanner.file_classifier import classify_directory
+from codebase_teacher.scanner.learner_info import load_learner_info
 from codebase_teacher.storage.database import Database
 
 console = Console()
@@ -28,6 +31,16 @@ def scan(ctx: click.Context, path: str, auto: bool) -> None:
         settings.model = ctx.obj["model"]
 
     console.print(f"\n[bold]Scanning codebase:[/] {root}")
+
+    try:
+        learner_info = load_learner_info(root)
+    except LearnerInfoTooLarge as e:
+        console.print(f"[red bold]{e}[/]")
+        sys.exit(1)
+    if learner_info:
+        console.print(
+            "[cyan]Detected LEARNER-INFO.md — will guide analysis and doc generation.[/]"
+        )
 
     # Set up database
     db = Database(settings.db_path(root))

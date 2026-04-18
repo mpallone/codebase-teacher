@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codebase_teacher.llm.prompt_registry import PROMPTS
+from codebase_teacher.llm.prompt_registry import PROMPTS, with_learner_context
 from codebase_teacher.llm.provider import LLMProvider, Message
 from codebase_teacher.llm.structured import complete_and_parse_list
 from codebase_teacher.storage.models import InfraComponent
@@ -12,6 +12,7 @@ async def detect_infrastructure(
     provider: LLMProvider,
     file_contents: dict[str, str],
     infra_hints: list[str] | None = None,
+    learner_info: str = "",
 ) -> list[InfraComponent]:
     """Detect infrastructure components from source code using LLM analysis.
 
@@ -44,9 +45,10 @@ async def detect_infrastructure(
     code_chunks = _build_code_chunks(file_contents, hints)
 
     prompt = PROMPTS["detect_infrastructure"]
+    user_content = prompt.format_user(code_chunks=code_chunks)
     messages = [
         Message(role="system", content=prompt.format_system()),
-        Message(role="user", content=prompt.format_user(code_chunks=code_chunks)),
+        Message(role="user", content=with_learner_context(user_content, learner_info)),
     ]
 
     try:

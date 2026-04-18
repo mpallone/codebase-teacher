@@ -43,6 +43,30 @@ Start with `docs/overview.md` — it's a short, friendly tour of what the
 codebase does, why it exists, and how the major pieces connect. Then dive into
 `architecture.md` for the deeper design details.
 
+## Tailoring output with `LEARNER-INFO.md`
+
+Drop an optional `LEARNER-INFO.md` file at the root of the project being analyzed
+to tell the tool what you care about. Its contents are passed as high-priority
+context to every analysis and doc-generation prompt, so the output emphasizes
+your priorities and treats tangential components as supporting context.
+
+Example: running across a set of repos that includes dependencies you don't care
+much about:
+
+```markdown
+# LEARNER-INFO
+
+I'm the author of the `orders` service; treat `orders` and `checkout` as
+root repos. Other repos (users, inventory, payments) are dependencies —
+only explain them as needed to describe flows that originate in `orders`.
+I care most about data flow and failure modes, less about framework plumbing.
+```
+
+The file is limited to 20,000 characters (oversized files cause `teach scan`
+and `teach analyze` to exit with an explicit error rather than silently drop
+context). Editing `LEARNER-INFO.md` invalidates the analyze cache so the next
+`teach analyze` run picks up the new priorities.
+
 ## Commands
 
 ### `teach scan <path>`
