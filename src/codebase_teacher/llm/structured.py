@@ -78,15 +78,17 @@ async def complete_and_parse(
     messages: list[Message],
     model_class: type[T],
     retries: int = 2,
-    temperature: float = 0.3,
+    temperature: float | None = None,
 ) -> T:
     """Send a completion request and parse the response into a pydantic model.
 
-    Retries on parse failure with a lower temperature.
+    Retries on parse failure with a lower temperature. ``temperature=None``
+    resolves to ``provider.temperature``.
     """
+    base_temp = provider.temperature if temperature is None else temperature
     last_error: Exception | None = None
     for attempt in range(retries + 1):
-        temp = temperature if attempt == 0 else max(0.1, temperature - 0.1 * attempt)
+        temp = base_temp if attempt == 0 else max(0.1, base_temp - 0.1 * attempt)
         response: LLMResponse = await provider.complete(
             messages, temperature=temp, response_format=model_class
         )
@@ -104,12 +106,13 @@ async def complete_and_parse_list(
     messages: list[Message],
     model_class: type[T],
     retries: int = 2,
-    temperature: float = 0.3,
+    temperature: float | None = None,
 ) -> list[T]:
     """Send a completion request and parse the response into a list of pydantic models."""
+    base_temp = provider.temperature if temperature is None else temperature
     last_error: Exception | None = None
     for attempt in range(retries + 1):
-        temp = temperature if attempt == 0 else max(0.1, temperature - 0.1 * attempt)
+        temp = base_temp if attempt == 0 else max(0.1, base_temp - 0.1 * attempt)
         response: LLMResponse = await provider.complete(
             messages, temperature=temp, response_format=model_class
         )

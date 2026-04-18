@@ -315,7 +315,7 @@ class _ScriptedProvider:
         self._responses = list(responses)
         self._calls: list[list] = []
 
-    async def complete(self, messages, temperature=0.3, max_tokens=None, response_format=None):
+    async def complete(self, messages, temperature=None, max_tokens=None, response_format=None):
         from codebase_teacher.llm.provider import LLMResponse, TokenUsage
 
         self._calls.append(messages)
@@ -333,6 +333,10 @@ class _ScriptedProvider:
     @property
     def max_tokens(self) -> int:
         return 16384
+
+    @property
+    def temperature(self) -> float:
+        return 0.3
 
     @property
     def model_name(self) -> str:

@@ -17,11 +17,19 @@ def create_provider(settings: Settings) -> LLMProvider:
     if settings.provider == "claude-code":
         from codebase_teacher.llm.cli_provider import ClaudeCodeProvider
 
-        return ClaudeCodeProvider(max_tokens=settings.max_tokens, timeout=settings.cli_timeout)
+        return ClaudeCodeProvider(
+            max_tokens=settings.max_tokens,
+            timeout=settings.cli_timeout,
+            temperature=settings.temperature,
+        )
     elif settings.provider == "litellm":
         from codebase_teacher.llm.litellm_adapter import LiteLLMProvider
 
-        return LiteLLMProvider(model=settings.model, max_tokens=settings.max_tokens)
+        return LiteLLMProvider(
+            model=settings.model,
+            max_tokens=settings.max_tokens,
+            temperature=settings.temperature,
+        )
     else:
         raise ValueError(
             f"Unknown provider: {settings.provider!r}. "

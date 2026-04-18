@@ -54,3 +54,18 @@ class TestCreateProvider:
     def test_default_cli_timeout_is_600(self):
         settings = Settings()
         assert settings.cli_timeout == 600
+
+    def test_litellm_passes_temperature(self):
+        settings = Settings(provider="litellm", temperature=0.8)
+        provider = create_provider(settings)
+        assert provider.temperature == 0.8
+
+    def test_claude_code_passes_temperature(self):
+        settings = Settings(provider="claude-code", temperature=0.7)
+        with patch("codebase_teacher.llm.cli_provider.shutil.which", return_value="/usr/bin/claude"):
+            provider = create_provider(settings)
+        assert provider.temperature == 0.7
+
+    def test_default_temperature_is_0_3(self):
+        settings = Settings()
+        assert settings.temperature == 0.3

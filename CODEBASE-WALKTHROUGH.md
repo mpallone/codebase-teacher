@@ -221,7 +221,7 @@ Both `model` and `verbose` are stored in `ctx.obj` (a plain dict), and subcomman
 | Field | Default | Notes |
 |---|---|---|
 | `model` | `"anthropic/claude-sonnet-4-20250514"` | litellm model string |
-| `temperature` | `0.3` | LLM temperature for most calls |
+| `temperature` | `0.3` | LLM sampling temperature (loaded from `CODEBASE_TEACHER_TEMPERATURE`). The factory passes `settings.temperature` to the provider at construction; every call site that omits the `temperature` kwarg inherits this value via the provider's `temperature` property. Only the `litellm` provider forwards it to the model — the `claude` CLI has no temperature flag. |
 | `max_tokens` | `16384` | Max output tokens per LLM call. Single source of truth — all call sites inherit this via `LiteLLMProvider`. |
 | `output_dir` | `".teacher-output"` | Relative to target project root |
 | `db_dir` | `".teacher"` | Relative to target project root |
@@ -511,9 +511,10 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 **`LLMProvider` Protocol:** Uses Python's structural typing (`typing.Protocol`). Any class that implements `complete`, `stream`, `context_window`, and `model_name` — without inheriting from `LLMProvider` — satisfies the protocol. This means `MockLLMProvider` in tests satisfies it without inheritance, just by implementing the same methods.
 
 **Methods:**
-- `complete(messages, temperature, max_tokens, response_format) -> LLMResponse`: Non-streaming completion.
-- `stream(messages, temperature) -> AsyncIterator[str]`: Streaming completion, yields content chunks.
+- `complete(messages, temperature=None, max_tokens=None, response_format=None) -> LLMResponse`: Non-streaming completion. `temperature=None` resolves to the provider's configured default (set from `Settings.temperature` at construction).
+- `stream(messages, temperature=None) -> AsyncIterator[str]`: Streaming completion, yields content chunks.
 - `context_window: int`: Property returning max tokens for this model.
+- `temperature: float`: Property returning the provider's configured default sampling temperature.
 - `model_name: str`: Property returning the model identifier.
 
 **Why a Protocol and not an ABC?** Structural typing avoids coupling test mocks to the production class hierarchy. Any dict-like object with the right methods works.
@@ -522,16 +523,17 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 
 **What it does:** The only file that imports `litellm`. All actual LLM API calls go through this class.
 
-**`LiteLLMProvider.__init__`:** Stores `_model` (litellm model string) and `_max_tokens`. Lazily initializes `_context_window` to avoid a litellm API call at construction time.
+**`LiteLLMProvider.__init__`:** Stores `_model` (litellm model string), `_max_tokens`, and `_temperature` (the configured sampling temperature). Lazily initializes `_context_window` to avoid a litellm API call at construction time.
 
-**`complete(messages, temperature, max_tokens, response_format)`:**
+**`complete(messages, temperature=None, max_tokens=None, response_format=None)`:**
+- Resolves `temperature` to `self._temperature` if `None`.
 - Converts `list[Message]` to `list[dict]` (the format litellm expects).
 - If `response_format` is provided (a Pydantic class), sets `kwargs["response_format"] = {"type": "json_object"}`. Note: this requests JSON mode from the provider, but the actual schema validation happens in `structured.py` — litellm's `response_format` here just tells the provider to return valid JSON.
 - Calls `await litellm.acompletion(**kwargs)`.
 - Extracts `choice.message.content` and usage fields from the litellm response object.
 - On any exception, wraps in `LLMError`.
 
-**`stream(messages, temperature)`:**
+**`stream(messages, temperature=None)`:**
 - Calls `litellm.acompletion(..., stream=True)`.
 - Iterates `async for chunk in response`, extracts `chunk.choices[0].delta.content`, yields non-empty chunks.
 
@@ -623,7 +625,8 @@ The LLM layer has a strict separation: `provider.py` defines the protocol; only 
 
 **`parse_model_list(text, model_class)`:** Same but checks for a `list` and validates each item.
 
-**`complete_and_parse(provider, messages, model_class, retries=2, temperature=0.3)`:**
+**`complete_and_parse(provider, messages, model_class, retries=2, temperature=None)`:**
+- Resolves `temperature` to `provider.temperature` once before the retry loop (the per-attempt reduction needs a concrete float to compute against).
 - Retry loop: on `LLMResponseError`, decrements temperature by `0.1 * attempt` (minimum 0.1) and tries again.
 - On all retries exhausted, raises the last error.
 - Note: this function is defined but the primary callers in the analyzer modules (`detect_apis`, `detect_infrastructure`, `trace_data_flows`) call `provider.complete()` directly and then call `parse_model_list()` in a `try/except Exception: return []` block. So the retry logic is available but not consistently used.

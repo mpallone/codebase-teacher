@@ -24,9 +24,17 @@ DEFAULT_TIMEOUT = 300
 class ClaudeCodeProvider:
     """LLM provider that shells out to the `claude` CLI."""
 
-    def __init__(self, max_tokens: int = 16384, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        max_tokens: int = 16384,
+        timeout: int = DEFAULT_TIMEOUT,
+        temperature: float = 0.3,
+    ):
         self._max_tokens = max_tokens
         self._timeout = timeout
+        # Stored for protocol uniformity. The `claude` CLI has no temperature
+        # flag, so this value is not forwarded to the subprocess.
+        self._temperature = temperature
         self._context_window_cache: int | None = None
 
         exe = shutil.which("claude")
@@ -59,10 +67,13 @@ class ClaudeCodeProvider:
     async def complete(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
         max_tokens: int | None = None,
         response_format=None,
     ) -> LLMResponse:
+        # `temperature` is accepted for protocol compatibility but the `claude`
+        # CLI has no temperature flag, so it cannot be forwarded.
+        del temperature
         user_prompt, system_prompt = self._build_prompt(messages)
 
         cmd: list[str] = [
@@ -129,7 +140,7 @@ class ClaudeCodeProvider:
     async def stream(
         self,
         messages: list[Message],
-        temperature: float = 0.3,
+        temperature: float | None = None,
     ) -> AsyncIterator[str]:
         response = await self.complete(messages, temperature)
         yield response.content
@@ -141,6 +152,10 @@ class ClaudeCodeProvider:
     @property
     def max_tokens(self) -> int:
         return self._max_tokens
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
 
     @property
     def model_name(self) -> str:
