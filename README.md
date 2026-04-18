@@ -7,8 +7,40 @@ AI-powered codebase analysis tool that generates architecture documentation, API
 ## Prerequisites
 
 - **Python 3.11+**
-- **Claude Code CLI** (`claude`) — installed and authenticated. This is the default LLM provider; no API key needed.
+- **(optional) Claude Code CLI** (`claude`) — installed and authenticated. This is the default LLM provider; no API key needed.
   - Alternatively, use the `litellm` provider with an API key (see [Provider Configuration](#provider-configuration)).
+
+## Verified local setup with `uv`
+
+This exact flow was run successfully on macOS against the bundled sample
+project using an OpenAI-compatible gateway. Adjust only the Python 3.11 path
+if your interpreter lives elsewhere.
+
+```bash
+uv venv --python /opt/homebrew/bin/python3.11 .venv
+source .venv/bin/activate
+python3 --version
+
+uv pip install -e .
+teach --version
+
+export CODEBASE_TEACHER_PROVIDER=litellm
+export OPENAI_BASE_URL=https://your-gateway/api/llm
+export OPENAI_API_KEY=...
+export CODEBASE_TEACHER_MODEL=openai/gpt-5.4
+
+teach scan --auto tests/fixtures/sample_project
+teach analyze tests/fixtures/sample_project
+teach generate tests/fixtures/sample_project
+teach generate tests/fixtures/sample_project --format html
+find tests/fixtures/sample_project/.teacher-output -type f | sort
+```
+
+Notes:
+
+- `openai/gpt-5.4` worked in the verified setup above.
+- The HTML smoke test above should create
+  `tests/fixtures/sample_project/.teacher-output/index.html`.
 
 ## Quick Start
 
@@ -134,6 +166,25 @@ export OPENAI_API_KEY=sk-...
 
 # Choose a model (defaults to anthropic/claude-sonnet-4-20250514)
 export CODEBASE_TEACHER_MODEL=anthropic/claude-sonnet-4-20250514
+```
+
+For an OpenAI-compatible gateway such as TrueFoundry:
+
+```bash
+export CODEBASE_TEACHER_PROVIDER=litellm
+export OPENAI_BASE_URL=https://your-gateway/api/llm
+export OPENAI_API_KEY=...
+
+# List the models your token can access
+curl -sS \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  "$OPENAI_BASE_URL/models" | jq -r '.data[].id'
+
+# Pick one of the returned IDs
+export CODEBASE_TEACHER_MODEL=openai/gpt-5.4
+
+# Some GPT-5 gateways require temperature=1.0
+export CODEBASE_TEACHER_TEMPERATURE=1.0
 ```
 
 ## CLI Options
