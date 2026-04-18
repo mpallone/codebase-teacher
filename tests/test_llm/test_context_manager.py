@@ -108,3 +108,50 @@ def test_build_context_with_focus(mock_provider):
     )
     context = cm.build_context(project, focus_module="src")
     assert "Source code" in context
+
+
+@pytest.mark.asyncio
+async def test_summarize_file_without_learner_info_has_no_preamble(mock_provider):
+    """Default empty learner_info must not inject the preamble."""
+    cm = ContextManager(mock_provider)
+    await cm.summarize_file("test.py", "def hello(): pass")
+    user_msg = mock_provider._calls[-1][-1].content
+    assert "Learner Context" not in user_msg
+
+
+@pytest.mark.asyncio
+async def test_summarize_file_threads_learner_info(mock_provider):
+    """Non-empty learner_info must appear in the file-summary prompt."""
+    cm = ContextManager(
+        mock_provider,
+        learner_info="I only care about module X.",
+    )
+    await cm.summarize_file("test.py", "def hello(): pass")
+    user_msg = mock_provider._calls[-1][-1].content
+    assert "Learner Context" in user_msg
+    assert "module X" in user_msg
+
+
+@pytest.mark.asyncio
+async def test_summarize_module_threads_learner_info(mock_provider):
+    """Module-level summary must receive the learner preamble too."""
+    cm = ContextManager(mock_provider, learner_info="Focus on the ingestion pipeline.")
+    await cm.summarize_module(
+        "pkg",
+        [FileSummary(path="pkg/a.py", summary="Does A.")],
+    )
+    user_msg = mock_provider._calls[-1][-1].content
+    assert "Learner Context" in user_msg
+    assert "ingestion pipeline" in user_msg
+
+
+@pytest.mark.asyncio
+async def test_summarize_project_threads_learner_info(mock_provider):
+    """Project-level summary must receive the learner preamble too."""
+    cm = ContextManager(mock_provider, learner_info="Ignore the experimental modules.")
+    await cm.summarize_project(
+        [ModuleSummary(path="pkg", summary="Core package.")],
+    )
+    user_msg = mock_provider._calls[-1][-1].content
+    assert "Learner Context" in user_msg
+    assert "experimental modules" in user_msg

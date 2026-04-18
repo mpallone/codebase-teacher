@@ -23,6 +23,25 @@ class PromptTemplate:
         return self.user.format(**kwargs)
 
 
+def with_learner_context(user_prompt: str, learner_info: str) -> str:
+    """Prepend the learner's LEARNER-INFO.md content to a user-message prompt.
+
+    No-op when learner_info is empty or whitespace, so every call site stays
+    safe for codebases without LEARNER-INFO.md.
+    """
+    if not learner_info.strip():
+        return user_prompt
+    preamble = (
+        "## Learner Context (high priority)\n"
+        "The person who will read the generated output wrote the following about "
+        "what they care about. Let this guide your emphasis, depth, and omissions. "
+        "When their priorities conflict with exhaustive coverage, prefer their priorities. "
+        "Explain dependencies or tangential components only as needed to support their focus.\n\n"
+        f"{learner_info.strip()}\n\n---\n\n"
+    )
+    return preamble + user_prompt
+
+
 PROMPTS: dict[str, PromptTemplate] = {
     "summarize_file": PromptTemplate(
         system=(

@@ -13,7 +13,7 @@ from pathlib import Path
 from codebase_teacher.core.exceptions import ContextBudgetExceeded
 from codebase_teacher.core.results import FileFailure, PartialResult
 from codebase_teacher.llm.provider import LLMProvider, LLMResponse, Message
-from codebase_teacher.llm.prompt_registry import PROMPTS
+from codebase_teacher.llm.prompt_registry import PROMPTS, with_learner_context
 
 
 @dataclass
@@ -54,9 +54,11 @@ class ContextManager:
         self,
         provider: LLMProvider,
         max_concurrent: int = 5,
+        learner_info: str = "",
     ):
         self.provider = provider
         self.max_concurrent = max_concurrent
+        self.learner_info = learner_info
         self._file_summaries: dict[str, FileSummary] = {}
         self._module_summaries: dict[str, ModuleSummary] = {}
         self._project_summary: ProjectSummary | None = None
@@ -81,9 +83,10 @@ class ContextManager:
             return self._file_summaries[file_path]
 
         prompt = PROMPTS["summarize_file"]
+        user_content = prompt.format_user(file_path=file_path, code=code)
         messages = [
             Message(role="system", content=prompt.format_system()),
-            Message(role="user", content=prompt.format_user(file_path=file_path, code=code)),
+            Message(role="user", content=with_learner_context(user_content, self.learner_info)),
         ]
         response: LLMResponse = await self.provider.complete(messages)
         summary = FileSummary(
@@ -136,6 +139,7 @@ class ContextManager:
         combined = "\n\n".join(
             f"### {fs.path}\n{fs.summary}" for fs in file_summaries
         )
+        user_content = f"Module: {module_path}\n\nFile summaries:\n{combined}"
         messages = [
             Message(
                 role="system",
@@ -147,7 +151,7 @@ class ContextManager:
             ),
             Message(
                 role="user",
-                content=f"Module: {module_path}\n\nFile summaries:\n{combined}",
+                content=with_learner_context(user_content, self.learner_info),
             ),
         ]
         response = await self.provider.complete(messages)
@@ -169,6 +173,7 @@ class ContextManager:
         combined = "\n\n".join(
             f"### {ms.path}\n{ms.summary}" for ms in module_summaries
         )
+        user_content = f"Module summaries:\n{combined}"
         messages = [
             Message(
                 role="system",
@@ -178,7 +183,7 @@ class ContextManager:
                     "major components, how they connect, and key infrastructure dependencies."
                 ),
             ),
-            Message(role="user", content=f"Module summaries:\n{combined}"),
+            Message(role="user", content=with_learner_context(user_content, self.learner_info)),
         ]
         response = await self.provider.complete(messages)
         self._project_summary = ProjectSummary(
