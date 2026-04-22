@@ -460,6 +460,7 @@ async def test_html_project_name_in_title(mock_provider, tmp_path):
 
         assert "my-cool-project" in content
         assert "<title>" in content
+        assert '<h1 class="page-title">my-cool-project</h1>' in content
     finally:
         db.close()
 

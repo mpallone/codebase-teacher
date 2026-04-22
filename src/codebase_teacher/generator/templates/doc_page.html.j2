@@ -137,6 +137,19 @@
       padding: 2rem 2.5rem 4rem;
     }
 
+    /* --- Page Header --- */
+    .page-header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+    }
+    .page-title {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin: 0;
+      color: var(--text);
+    }
+
     /* --- Sections --- */
     .content section {
       margin-bottom: 3rem;
@@ -304,6 +317,9 @@
   <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
 
   <main class="content">
+    <header class="page-header">
+      <h1 class="page-title">{{ project_name }}</h1>
+    </header>
     {% for section in sections %}
     <section id="{{ section.slug }}">
       <h1>{{ section.title }}</h1>
